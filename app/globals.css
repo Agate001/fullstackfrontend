@@ -32,15 +32,3 @@ body {
 .font-small {
   font-family: "Patrick Hand SC", cursive;
 }
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(120, 90, 50, 0.45);
-  border-radius: 9999px;
-}

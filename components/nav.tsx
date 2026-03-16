@@ -7,7 +7,7 @@ const NavBarComponent = () => {
 <div className="mb-3 flex w-full justify-end gap-3">
 
   <Link
-    href="/"
+    href="/home"
     className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.5rem] text-black shadow hover:bg-[#eadbc3]"
   >
     Home
@@ -21,10 +21,10 @@ const NavBarComponent = () => {
   </Link>
 
   <Link
-    href="/leader"
+    href="/"
     className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.5rem] text-black shadow hover:bg-[#eadbc3]"
   >
-    Leader
+    Login for now
   </Link>
 
 </div>
