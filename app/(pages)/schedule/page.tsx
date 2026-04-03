@@ -1,6 +1,10 @@
 "use client";
 
 import NavBarComponent from "@/components/nav";
+import { Button } from "flowbite-react";
+import { navigate } from "next/dist/client/components/segment-cache/navigation";
+import { redirect } from "next/dist/server/api-utils";
+import Link from "next/link";
 
 type DailyItem = {
   name: string;
@@ -22,13 +26,14 @@ export default function SchedulePage() {
     { name: "Chores", hours: "6 hours" },
   ];
 
+
   return (
     <main className="min-h-screen w-full bg-[url('/Assets/Background.png')] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
       <div className="w-full">
         <NavBarComponent/>
 
         {/* title */}
-        <div className="mb-4 flex h-[70px] w-full items-center justify-center bg-[url('/Assets/Title.png')] bg-cover bg-center bg-no-repeat">
+        <div className="mb-4 flex h-17.5 w-full items-center justify-center bg-[url('/Assets/Title.png')] bg-cover bg-center bg-no-repeat">
           <h1 className="font-large text-center text-[2.4rem] text-black">
             Plan the Future to Know Your Future
           </h1>
@@ -37,7 +42,7 @@ export default function SchedulePage() {
         {/* content */}
         <section className="grid w-full grid-cols-1 gap-4 xl:grid-cols-[0.9fr_1.35fr]">
           {/* left card */}
-          <div className="h-[560px] rounded-[28px] bg-[url('/Assets/Card.png')] bg-cover bg-center bg-no-repeat p-6 shadow-md overflow-hidden">
+          <div className="h-140 rounded-[28px] bg-[url(/Assets/Card.png)] bg-cover bg-center bg-no-repeat p-6 shadow-md overflow-hidden">
             <h2 className="font-small mb-8 text-center text-[2rem] text-black">
               Daily Schedule
             </h2>
@@ -86,7 +91,7 @@ export default function SchedulePage() {
 
           {/* right side */}
           <div className="flex flex-col gap-4">
-            <div className="h-[460px] rounded-[28px] bg-[url('/Assets/Card.png')] bg-cover bg-center bg-no-repeat p-8 shadow-md overflow-hidden">
+            <div className="h-115 rounded-[28px] bg-[url(/Assets/Card.png)] bg-cover bg-center bg-no-repeat p-8 shadow-md overflow-hidden">
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <h2 className="font-small text-[3.2rem] text-black">
                   {todayTitle}
@@ -109,7 +114,7 @@ export default function SchedulePage() {
             <div className="flex justify-center">
               <button
                 type="button"
-                className="font-small min-w-[260px] rounded-[20px] bg-[url('/Assets/Card.png')] bg-cover bg-center bg-no-repeat px-10 py-5 text-[2rem] text-black shadow-md"
+                className="font-small min-w-65 rounded-lg bg-[url(/Assets/Card.png)] bg-cover bg-center bg-no-repeat px-10 py-5 text-[2rem] text-black shadow-md"
               >
                 Add Event ?
               </button>
@@ -119,10 +124,11 @@ export default function SchedulePage() {
 
         {/* logout */}
         <div className="mt-4">
-          <button className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.4rem] text-black shadow">
+          <Link className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.4rem] text-black shadow"
+          href="/">
             Logout
-          </button>
-        </div>
+          </Link>
+        </div> 
       </div>
     </main>
   );

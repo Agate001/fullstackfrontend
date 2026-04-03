@@ -1,6 +1,7 @@
 "use client";
 
 import NavBarComponent from "@/components/nav";
+import Link from "next/link";
 
 const globalLeaders = Array.from({ length: 10 }, (_, i) => ({
   rank: i + 1,
@@ -52,12 +53,12 @@ function LeaderBoardCard({
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen w-full bg-[url('/Assets/Background.png')] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
+    <main className="min-h-screen w-full bg-[url(/Assets/Background.png)] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
       <div className="w-full">
         <NavBarComponent />
 
         {/* title */}
-        <div className="mb-6 flex h-[110px] w-full items-center justify-center bg-[url('/Assets/Title.png')] bg-cover bg-center bg-no-repeat px-6">
+        <div className="mb-6 flex h-27.5 w-full items-center justify-center bg-[url(/Assets/Title.png)] bg-cover bg-center bg-no-repeat px-6">
           <h1 className="font-large text-center text-[2.2rem] leading-tight text-black">
             Where Do You Stand Against
             <br />
@@ -80,9 +81,10 @@ export default function HomePage() {
 
         {/* logout */}
         <div className="mt-6">
-          <button className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.4rem] text-black shadow">
+          <Link className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.4rem] text-black shadow"
+          href="/">
             Logout
-          </button>
+          </Link>
         </div>
       </div>
     </main>
