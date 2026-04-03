@@ -23,7 +23,7 @@ function LeaderBoardCard({
   data: { rank: number; player: string; points: string }[];
 }) {
   return (
-    <div className="w-full max-w-[420px] rounded-[28px] bg-[url('/Assets/Card.png')] bg-cover bg-center bg-no-repeat p-5 shadow-lg">
+    <div className="w-full max-w-105 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-5 shadow-lg">
       <h2 className="font-small mb-5 text-center text-[1.8rem] text-black underline">
         {title}
       </h2>
@@ -53,12 +53,12 @@ function LeaderBoardCard({
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen w-full bg-[url(/Assets/Background.png)] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
+    <main className="min-h-screen w-full bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Background.png)] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
       <div className="w-full">
         <NavBarComponent />
 
         {/* title */}
-        <div className="mb-6 flex h-27.5 w-full items-center justify-center bg-[url(/Assets/Title.png)] bg-cover bg-center bg-no-repeat px-6">
+        <div className="mb-6 flex h-27.5 w-full items-center justify-center bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Title.png)] bg-cover bg-center bg-no-repeat px-6">
           <h1 className="font-large text-center text-[2.2rem] leading-tight text-black">
             Where Do You Stand Against
             <br />
