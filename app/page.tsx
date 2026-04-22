@@ -73,7 +73,7 @@ export default function LoginPage() {
 
   return (
     <div>
-      <NavBarComponent />
+      
 
       <main className="min-h-screen w-full bg-[url('/Assets/Background.png')] bg-cover bg-center flex items-center justify-center">
         <div className="w-105 rounded-[28px] bg-[url('/Assets/Card.png')] bg-cover bg-center p-10 shadow-md">
