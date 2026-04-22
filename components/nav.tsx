@@ -21,10 +21,10 @@ const NavBarComponent = () => {
   </Link>
 
   <Link
-    href="/"
+    href="/leader"
     className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.5rem] text-black shadow hover:bg-[#eadbc3]"
   >
-    Login for now
+   Leader
   </Link>
 
 </div>

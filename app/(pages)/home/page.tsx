@@ -1,6 +1,7 @@
 "use client";
 
 import NavBarComponent from "@/components/nav";
+import Link from "next/link";
 
 
 
@@ -31,12 +32,12 @@ export default function HomePage() {
   const bonus = 25;
 
   return (
-    <main className="min-h-screen w-full bg-[url('/Assets/Background.png')] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
+    <main className="min-h-screen w-full bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Background.png)] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
       <div className="w-full">
           <NavBarComponent/>
 
         {/* title */}
-        <div className="mb-3 flex h-[70px] w-full items-center justify-center bg-[url('/Assets/Title.png')] bg-cover bg-center bg-no-repeat">
+        <div className="mb-3 flex h-17.5 w-full items-center justify-center bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Title.png)] bg-cover bg-center bg-no-repeat">
           <h1 className="font-large text-center text-[2.4rem] text-black">
             Make Today Your Tomorrow
           </h1>
@@ -45,7 +46,7 @@ export default function HomePage() {
         {/* layout */}
         <section className="grid w-full grid-cols-1 gap-3 xl:grid-cols-[1.35fr_1.1fr_0.8fr]">
           {/* left */}
-          <div className="h-[560px] rounded-[28px] bg-[url('/Assets/Card.png')] bg-cover bg-center bg-no-repeat p-6 shadow-md overflow-hidden">
+          <div className="h-140 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-6 shadow-md overflow-hidden">
             <h2 className="font-small mb-6 text-center text-[2.1rem] text-black">
               What Are We Working On
             </h2>
@@ -73,7 +74,7 @@ export default function HomePage() {
           {/* middle */}
           <div className="flex flex-col gap-3">
             {/* score */}
-            <div className="min-h-[180px] rounded-[28px] bg-[url('/Assets/Card.png')] bg-cover bg-center bg-no-repeat p-5 shadow-md overflow-hidden">
+            <div className="min-h-45 rounded-[28px] bg-[url('https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png')] bg-cover bg-center bg-no-repeat p-5 shadow-md overflow-hidden">
               <div className="grid h-full grid-cols-2 gap-6">
                 <div>
                   <p className="font-small text-[1.9rem] text-black">Score</p>
@@ -109,7 +110,7 @@ export default function HomePage() {
             </div>
 
             {/* timer */}
-            <div className="min-h-[180px] rounded-[28px] bg-[url('/Assets/Card.png')] bg-cover bg-center bg-no-repeat p-5 shadow-md overflow-hidden">
+            <div className="min-h-45 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-5 shadow-md overflow-hidden">
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <p className="font-small mb-4 text-[2.2rem] text-black">
                   {currentTime} / {targetTime}
@@ -122,7 +123,7 @@ export default function HomePage() {
             </div>
 
             {/* add */}
-            <button className="min-h-[180px] rounded-[28px] bg-[url('/Assets/Card.png')] bg-cover bg-center bg-no-repeat shadow-md overflow-hidden flex items-center justify-center">
+            <button className="min-h-45 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat shadow-md overflow-hidden flex items-center justify-center">
               <span className="font-large text-[5rem] leading-none text-black">
                 +
               </span>
@@ -130,7 +131,7 @@ export default function HomePage() {
           </div>
 
           {/* right */}
-          <div className="h-[560px] rounded-[28px] bg-[url('/Assets/Card.png')] bg-cover bg-center bg-no-repeat p-6 shadow-md overflow-hidden">
+          <div className="h-140 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-6 shadow-md overflow-hidden">
             <h2 className="font-small mb-6 text-center text-[2.1rem] text-black">
               Completed
             </h2>
@@ -151,9 +152,10 @@ export default function HomePage() {
 
         {/* logout */}
         <div className="mt-3">
-          <button className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.4rem] text-black shadow">
+          <Link className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.4rem] text-black shadow"
+          href="/">
             Logout
-          </button>
+          </Link>
         </div>
       </div>
     </main>

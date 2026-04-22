@@ -1,0 +1,105 @@
+{
+  "dailyTasks": [
+    {
+      "id": 1,
+      "name": "Gym",
+      "duration": "01:15:30",
+      "completed": true
+    },
+    {
+      "id": 2,
+      "name": "Study",
+      "duration": "02:45:10",
+      "completed": false
+    },
+    {
+      "id": 3,
+      "name": "School",
+      "duration": "06:30:00",
+      "completed": true
+    },
+    {
+      "id": 4,
+      "name": "Work",
+      "duration": "08:00:00",
+      "completed": true
+    },
+    {
+      "id": 5,
+      "name": "Gaming",
+      "duration": "01:50:45",
+      "completed": false
+    },
+    {
+      "id": 6,
+      "name": "Chores",
+      "duration": "00:40:20",
+      "completed": false
+    }
+  ],
+
+
+
+ 
+  "events": [
+    {
+      "id": 1,
+      "title": "Dinner Date",
+      "date": "2026-03-28",
+      "time": "19:30:00",
+      "location": "Downtown Restaurant"
+    },
+    {
+      "id": 2,
+      "title": "Job Interview",
+      "date": "2026-03-30",
+      "time": "10:00:00",
+      "location": "Zoom"
+    },
+    {
+      "id": 3,
+      "title": "Friend's Birthday",
+      "date": "2026-04-02",
+      "time": "18:00:00",
+      "location": "Friend's House"
+    }
+  ],
+
+
+    
+
+  "dashboardData": {
+    "date": "2026-03-27",
+    "tasks": [
+      {
+        "name": "Gym",
+        "duration": "01:15:30"
+      },
+      {
+        "name": "Study",
+        "duration": "02:45:10"
+      },
+      {
+        "name": "School",
+        "duration": "06:30:00"
+      },
+      {
+        "name": "Work",
+        "duration": "08:00:00"
+      },
+      {
+        "name": "Gaming",
+        "duration": "01:50:45"
+      },
+      {
+        "name": "Chores",
+        "duration": "00:40:20"
+      }
+    ],
+    "highlightEvent": {
+      "title": "Dinner Date",
+      "date": "2026-03-28",
+      "time": "19:30:00"
+    }
+  }
+}
