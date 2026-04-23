@@ -2,6 +2,7 @@
 
 import NavBarComponent from "@/components/nav";
 import Link from "next/link";
+import { useState } from "react";
 
 const globalLeaders = Array.from({ length: 10 }, (_, i) => ({
   rank: i + 1,
@@ -14,6 +15,7 @@ const friendLeaders = Array.from({ length: 10 }, (_, i) => ({
   player: "",
   points: "",
 }));
+
 
 function LeaderBoardCard({
   title,
@@ -52,18 +54,26 @@ function LeaderBoardCard({
 }
 
 export default function HomePage() {
+   const [online, setOnline] = useState(false);
   return (
     <main className="min-h-screen w-full bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Background.png)] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
       <div className="w-full">
         <NavBarComponent />
 
         {/* title */}
-        <div className="mb-6 flex h-27.5 w-full items-center justify-center bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Title.png)] bg-cover bg-center bg-no-repeat px-6">
+        <div className="relative mb-6 flex h-27.5 w-full items-center justify-center bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Title.png)] bg-cover bg-center bg-no-repeat px-6">
+
           <h1 className="font-large text-center text-[2.2rem] leading-tight text-black">
             Where Do You Stand Against
             <br />
             Your Competition
           </h1>
+
+          {/* add friend button */}
+          <button className="absolute right-6 top-1/2 -translate-y-1/2 w-20">
+            <img src="/assets/addfriendbtn.png" alt="add friends btn" />
+          </button>
+
         </div>
 
         {/* centered leaderboards */}
@@ -78,11 +88,20 @@ export default function HomePage() {
             data={friendLeaders}
           />
         </section>
+        <button
+          onClick={() => setOnline(!online)}
+          className="absolute bottom-1 left-180 -translate-x-1/2 w-16"
+        >
+          <img
+            src={online ? "/assets/Onlinebtn.png" : "/assets/Offlinebtn.png"}
+            alt="online toggle button"
+          />
+        </button>
 
         {/* logout */}
         <div className="mt-6">
           <Link className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.4rem] text-black shadow"
-          href="/">
+            href="/">
             Logout
           </Link>
         </div>
