@@ -86,7 +86,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div>
+    <div className="dark:text-black">
       <main className="min-h-screen w-full bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Background.png)] bg-cover bg-center flex items-center justify-center">
         <div className="w-105 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center p-10 shadow-md">
           <h1 className="font-large text-[2.6rem] text-center mb-8">
