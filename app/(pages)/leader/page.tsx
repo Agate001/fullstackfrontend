@@ -4,6 +4,37 @@ import NavBarComponent from "@/components/nav";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+type UserMini = {
+  id: number;
+  username: string;
+};
+
+type VerboseUser = {
+  id: number;
+  username: string;
+  outgoingRequests: UserMini[];
+  incomingRequests: UserMini[];
+  friends: UserMini[];
+};
+
+const API_BASE =
+  "https://csa-2526-studysync-api-b6bue3aue8hka0ea.westus3-01.azurewebsites.net/api/";
+
+const getLoggedInUsername = () => {
+  const username = localStorage.getItem("username");
+  if (username) return username;
+
+  const user = localStorage.getItem("user");
+  if (!user) return null;
+
+  try {
+    const parsedUser = JSON.parse(user);
+    return parsedUser.username || null;
+  } catch {
+    return user;
+  }
+};
+
 const globalLeaders = Array.from({ length: 10 }, (_, i) => {
   const names = [
     "Alex Johnson",
@@ -91,15 +122,11 @@ export default function HomePage() {
   const [showAddFriend, setShowAddFriend] = useState(false);
 
   const [search, setSearch] = useState("");
-  const [searchedUser, setSearchedUser] = useState<any>(null);
+  const [searchedUser, setSearchedUser] = useState<VerboseUser | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [friendRequests, setFriendRequests] = useState([
-    { id: 1, name: "Bob" },
-    { id: 2, name: "Dan" },
-  ]);
-
-  const [friends, setFriends] = useState<any[]>([]);
+  const [friendRequests, setFriendRequests] = useState<UserMini[]>([]);
+  const [friends, setFriends] = useState<UserMini[]>([]);
 
   const myScore = {
     rank: 11,
@@ -107,8 +134,41 @@ export default function HomePage() {
     points: "9900",
   };
 
+  const loadCurrentUserFriends = async () => {
+    try {
+      const self = getLoggedInUsername();
+
+      if (!self) {
+        console.log("Missing logged in username");
+        return;
+      }
+
+      const res = await fetch(
+        `${API_BASE}/User/Verbose/GetOneByUsername/${self}`
+      );
+
+      if (!res.ok) {
+        console.error(await res.text());
+        return;
+      }
+
+      const data: VerboseUser = await res.json();
+
+      console.log("Loaded backend user:", data);
+
+      setFriendRequests(data.incomingRequests || []);
+      setFriends(data.friends || []);
+    } catch (err) {
+      console.error("Failed to load friends:", err);
+    }
+  };
+
   useEffect(() => {
-    if (!search) {
+    loadCurrentUserFriends();
+  }, []); 
+
+  useEffect(() => {
+    if (!search.trim()) {
       setSearchedUser(null);
       return;
     }
@@ -125,7 +185,7 @@ export default function HomePage() {
       setLoading(true);
 
       const res = await fetch(
-        `https://csa-2526-studysync-api-b6bue3aue8hka0ea.westus3-01.azurewebsites.net/api/User/Verbose/GetOneByUsername/${search.trim()}`
+        `${API_BASE}User/Verbose/GetOneByUsername/${search.trim()}`
       );
 
       if (!res.ok) {
@@ -133,7 +193,7 @@ export default function HomePage() {
         return;
       }
 
-      const data = await res.json();
+      const data: VerboseUser = await res.json();
       setSearchedUser(data);
     } catch (err) {
       console.error(err);
@@ -143,78 +203,94 @@ export default function HomePage() {
     }
   };
 
-  // 🔥 FRIEND REQUEST (WITH STATUS ALERTS)
-  const handleAddFriend = async (user: any) => {
-  try {
-    const self = localStorage.getItem("username");
-
-    if (!self || !user?.username) {
-      alert("Missing username or target user");
-      return;
-    }
-
-    const url = `https://csa-2526-studysync-api-b6bue3aue8hka0ea.westus3-01.azurewebsites.net/api/Friend/AcceptOrCreate/${self}/${user.username}`;
-
-    const res = await fetch(url, {
-      method: "POST",
-    });
-
-    // 🔥 NEW: show real backend error
-    if (!res.ok) {
-      const text = await res.text(); // backend message (IMPORTANT)
-      console.log("Backend error:", text);
-      alert(`❌ FAILED: ${text}`);
-      return;
-    }
-
-    alert(`✅ Friend request SENT to ${user.username}`);
-  } catch (err) {
-    console.error("Frontend error:", err);
-    alert("❌ Network/Fetch error");
-  }
-};
-
-  // 🔥 ACCEPT REQUEST (WITH ALERT)
-  const acceptRequest = async (id: number, name: string) => {
+  const handleAddFriend = async (user: VerboseUser) => {
     try {
-      const self = localStorage.getItem("username");
+      const self = getLoggedInUsername();
 
-      const url = `https://csa-2526-studysync-api-b6bue3aue8hka0ea.westus3-01.azurewebsites.net/api/Friend/AcceptOrCreate/${self}/${name}`;
-
-      const res = await fetch(url, { method: "POST" });
-
-      if (!res.ok) {
-        alert("❌ Accept failed");
+      if (!self || !user?.username) {
+        alert("Missing username or target user");
         return;
       }
 
-      setFriends((prev) => [...prev, { id, name }]);
-      setFriendRequests((prev) => prev.filter((r) => r.id !== id));
+      if (self === user.username) {
+        alert("You cannot send a friend request to yourself");
+        return;
+      }
 
-      alert(`✅ Friend request ACCEPTED from ${name}`);
+      const url = `${API_BASE}/Friend/AcceptOrCreate/${self}/${user.username}`;
+
+      const res = await fetch(url, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.log("Backend error:", text);
+        alert(`❌ FAILED: ${text}`);
+        return;
+      }
+
+      await loadCurrentUserFriends();
+
+      alert(`✅ Friend request SENT to ${user.username}`);
+    } catch (err) {
+      console.error("Frontend error:", err);
+      alert("❌ Network/Fetch error");
+    }
+  };
+
+  const acceptRequest = async (requestUser: UserMini) => {
+    try {
+      const self = getLoggedInUsername();
+
+      if (!self) {
+        alert("Missing logged in username");
+        return;
+      }
+
+      const url = `${API_BASE}/Friend/AcceptOrCreate/${self}/${requestUser.username}`;
+
+      const res = await fetch(url, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        alert(`❌ Accept failed: ${await res.text()}`);
+        return;
+      }
+
+      await loadCurrentUserFriends();
+
+      alert(`✅ Friend request ACCEPTED from ${requestUser.username}`);
     } catch (err) {
       console.error(err);
       alert("❌ Error accepting request");
     }
   };
 
-  // 🔥 REJECT REQUEST (WITH ALERT)
-  const declineRequest = async (id: number, name: string) => {
+  const declineRequest = async (requestUser: UserMini) => {
     try {
-      const self = localStorage.getItem("username");
+      const self = getLoggedInUsername();
 
-      const url = `https://csa-2526-studysync-api-b6bue3aue8hka0ea.westus3-01.azurewebsites.net/api/Friend/RejectOrDelete/${self}/${name}`;
-
-      const res = await fetch(url, { method: "POST" });
-
-      if (!res.ok) {
-        alert("❌ Reject failed");
+      if (!self) {
+        alert("Missing logged in username");
         return;
       }
 
-      setFriendRequests((prev) => prev.filter((r) => r.id !== id));
+      const url = `${API_BASE}/Friend/RejectOrDelete/${self}/${requestUser.username}`;
 
-      alert(`❌ Friend request REJECTED from ${name}`);
+      const res = await fetch(url, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        alert(`❌ Reject failed: ${await res.text()}`);
+        return;
+      }
+
+      await loadCurrentUserFriends();
+
+      alert(`❌ Friend request REJECTED from ${requestUser.username}`);
     } catch (err) {
       console.error(err);
       alert("❌ Error rejecting request");
@@ -234,8 +310,11 @@ export default function HomePage() {
           </h1>
 
           <button
-            onClick={() => setShowAddFriend(true)}
-            className="absolute right-6 top-1/2 -translate-y-1/2 w-20"
+            onClick={() => {
+              setShowAddFriend(true);
+              loadCurrentUserFriends();
+            }}
+            className="absolute right-6 top-1/2 w-20 -translate-y-1/2"
           >
             <img src="/assets/addfriendbtn.png" alt="add friends btn" />
           </button>
@@ -259,7 +338,7 @@ export default function HomePage() {
 
         <button
           onClick={() => setOnline(!online)}
-          className="absolute bottom-1 left-180 -translate-x-1/2 w-16"
+          className="absolute bottom-1 left-180 w-16 -translate-x-1/2"
         >
           <img
             src={online ? "/assets/Onlinebtn.png" : "/assets/Offlinebtn.png"}
@@ -279,8 +358,7 @@ export default function HomePage() {
 
       {showAddFriend && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative w-[420px] rounded-2xl bg-[#f5e9d6] shadow-xl p-6 text-black">
-
+          <div className="relative w-[420px] rounded-2xl bg-[#f5e9d6] p-6 text-black shadow-xl">
             <button
               onClick={() => setShowAddFriend(false)}
               className="absolute right-3 top-3 text-xl"
@@ -288,7 +366,7 @@ export default function HomePage() {
               ✕
             </button>
 
-            <h2 className="text-center text-2xl font-semibold mb-4">
+            <h2 className="mb-4 text-center text-2xl font-semibold">
               Add a Friend
             </h2>
 
@@ -296,43 +374,50 @@ export default function HomePage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full mt-1 mb-3 p-2 rounded-md border border-gray-400"
+              className="mb-3 mt-1 w-full rounded-md border border-gray-400 p-2"
               placeholder="Enter username..."
             />
 
             {loading && <p>Searching...</p>}
 
             {searchedUser && (
-              <div className="bg-white border rounded-md p-3 mb-3">
+              <div className="mb-3 rounded-md border bg-white p-3">
                 <p className="font-semibold">{searchedUser.username}</p>
+
                 <button
                   onClick={() => handleAddFriend(searchedUser)}
-                  className="text-green-600 mt-2"
+                  className="mt-2 text-green-600"
                 >
                   + Send Friend Request
                 </button>
               </div>
             )}
 
-            <div className="bg-white rounded-lg p-3 border border-gray-300 mb-3">
-              <p className="text-sm font-medium mb-2">Requests:</p>
+            <div className="mb-3 rounded-lg border border-gray-300 bg-white p-3">
+              <p className="mb-2 text-sm font-medium">Requests:</p>
+
+              {friendRequests.length === 0 && (
+                <p className="text-sm text-gray-500">No incoming requests</p>
+              )}
 
               {friendRequests.map((req) => (
                 <div
                   key={req.id}
-                  className="flex items-center justify-between py-1 border-b"
+                  className="flex items-center justify-between border-b py-1 last:border-b-0"
                 >
-                  <span>{req.name}</span>
+                  <span>{req.username}</span>
+
                   <div className="flex gap-2">
                     <button
-                      onClick={() => acceptRequest(req.id, req.name)}
-                      className="text-green-600 text-lg"
+                      onClick={() => acceptRequest(req)}
+                      className="text-lg text-green-600"
                     >
                       ✔
                     </button>
+
                     <button
-                      onClick={() => declineRequest(req.id, req.name)}
-                      className="text-red-600 text-lg"
+                      onClick={() => declineRequest(req)}
+                      className="text-lg text-red-600"
                     >
                       ✕
                     </button>
@@ -341,17 +426,19 @@ export default function HomePage() {
               ))}
             </div>
 
-            {friends.length > 0 && (
-              <div className="bg-white rounded-lg p-3 border border-gray-300">
-                <p className="text-sm font-medium mb-2">Friends:</p>
+            <div className="rounded-lg border border-gray-300 bg-white p-3">
+              <p className="mb-2 text-sm font-medium">Friends:</p>
 
-                {friends.map((f) => (
-                  <div key={f.id} className="py-1 border-b last:border-b-0">
-                    {f.name}
-                  </div>
-                ))}
-              </div>
-            )}
+              {friends.length === 0 && (
+                <p className="text-sm text-gray-500">No friends yet</p>
+              )}
+
+              {friends.map((f) => (
+                <div key={f.id} className="border-b py-1 last:border-b-0">
+                  {f.username}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
