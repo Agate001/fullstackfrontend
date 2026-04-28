@@ -165,7 +165,7 @@ export default function HomePage() {
 
   useEffect(() => {
     loadCurrentUserFriends();
-  }, []); 
+  }, []);
 
   useEffect(() => {
     if (!search.trim()) {
@@ -269,6 +269,7 @@ export default function HomePage() {
   };
 
   const declineRequest = async (requestUser: UserMini) => {
+    
     try {
       const self = getLoggedInUsername();
 
@@ -296,6 +297,32 @@ export default function HomePage() {
       alert("❌ Error rejecting request");
     }
   };
+  const removeFriend = async (friendUser: UserMini) => {
+  try {
+    const self = getLoggedInUsername();
+
+    if (!self) {
+      alert("Missing logged in username");
+      return;
+    }
+
+    const url = `${API_BASE}/Friend/RejectOrDelete/${self}/${friendUser.username}`;
+
+    const res = await fetch(url, {
+      method: "POST",
+    });
+
+    if (!res.ok) {
+      alert(`❌ Remove failed: ${await res.text()}`);
+      return;
+    }
+
+    await loadCurrentUserFriends();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 
   return (
     <main className="min-h-screen w-full bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Background.png)] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
@@ -326,9 +353,9 @@ export default function HomePage() {
             data={
               online
                 ? [...globalLeaders, myScore]
-                    .sort((a, b) => Number(b.points) - Number(a.points))
-                    .slice(0, 10)
-                    .map((p, i) => ({ ...p, rank: i + 1 }))
+                  .sort((a, b) => Number(b.points) - Number(a.points))
+                  .slice(0, 10)
+                  .map((p, i) => ({ ...p, rank: i + 1 }))
                 : globalLeaders
             }
           />
@@ -434,8 +461,18 @@ export default function HomePage() {
               )}
 
               {friends.map((f) => (
-                <div key={f.id} className="border-b py-1 last:border-b-0">
-                  {f.username}
+                <div
+                  key={f.id}
+                  className="flex items-center justify-between border-b py-1 last:border-b-0"
+                >
+                  <span>{f.username}</span>
+
+                  <button
+                    onClick={() => removeFriend(f)}
+                    className="text-lg text-red-600"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
