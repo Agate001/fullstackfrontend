@@ -90,7 +90,7 @@ function LeaderBoardCard({
   data: { rank: number; player: string; points: string }[];
 }) {
   return (
-    <div className="w-full max-w-[700px] rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-5 shadow-lg">
+    <div className="w-full min-w-[450px] max-w-[700px] rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-5 shadow-lg">
       <h2 className="font-small mb-5 text-center text-[1.8rem] text-black underline">
         {title}
       </h2>
