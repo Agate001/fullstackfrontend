@@ -90,7 +90,7 @@ function LeaderBoardCard({
   data: { rank: number; player: string; points: string }[];
 }) {
   return (
-    <div className="w-full max-w-105 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-5 shadow-lg">
+    <div className="w-full max-w-[700px] rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-5 shadow-lg">
       <h2 className="font-small mb-5 text-center text-[1.8rem] text-black underline">
         {title}
       </h2>
@@ -351,30 +351,36 @@ export default function HomePage() {
         </div>
 
         <section className="flex flex-wrap items-center justify-center gap-10">
-          <LeaderBoardCard
-            title="Global Leader Board"
-            data={
-              online
-                ? [...globalLeaders, myScore]
+          <div className="relative">
+            <LeaderBoardCard
+              title="Global Leader Board"
+              data={
+                online
+                  ? [...globalLeaders, myScore]
                     .sort((a, b) => Number(b.points) - Number(a.points))
                     .slice(0, 10)
                     .map((p, i) => ({ ...p, rank: i + 1 }))
-                : globalLeaders
-            }
-          />
+                  : globalLeaders
+              }
+            />
 
-          <LeaderBoardCard title="Friend Leader Board" data={friendLeaders} />
+            <button
+              onClick={() => setOnline(!online)}
+              className="absolute -bottom-3 -right-3 w-12"
+            >
+              <img
+                src={online ? "/assets/Onlinebtn.png" : "/assets/Offlinebtn.png"}
+                alt="online toggle button"
+              />
+            </button>
+          </div>
+
+          
+          <div className="relative">
+            <LeaderBoardCard title="Friend Leader Board" data={friendLeaders} />
+          </div>
         </section>
 
-        <button
-          onClick={() => setOnline(!online)}
-          className="absolute bottom-1 left-180 w-16 -translate-x-1/2"
-        >
-          <img
-            src={online ? "/assets/Onlinebtn.png" : "/assets/Offlinebtn.png"}
-            alt="online toggle button"
-          />
-        </button>
 
         <div className="mt-6">
           <Link
