@@ -3,6 +3,7 @@
 import NavBarComponent from "@/components/nav";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import MessagePopup from "@/components/MessagePopUp";
 
 type UserMini = {
   id: number;
@@ -127,6 +128,7 @@ export default function HomePage() {
 
   const [friendRequests, setFriendRequests] = useState<UserMini[]>([]);
   const [friends, setFriends] = useState<UserMini[]>([]);
+  const [popupMessage, setPopupMessage] = useState("");
 
   const myScore = {
     rank: 11,
@@ -144,7 +146,7 @@ export default function HomePage() {
       }
 
       const res = await fetch(
-        `${API_BASE}/User/Verbose/GetOneByUsername/${self}`
+        `${API_BASE}User/Verbose/GetOneByUsername/${self}`
       );
 
       if (!res.ok) {
@@ -154,12 +156,11 @@ export default function HomePage() {
 
       const data: VerboseUser = await res.json();
 
-      console.log("Loaded backend user:", data);
-
       setFriendRequests(data.incomingRequests || []);
       setFriends(data.friends || []);
     } catch (err) {
       console.error("Failed to load friends:", err);
+      setPopupMessage("Failed to load friends.");
     }
   };
 
@@ -198,6 +199,7 @@ export default function HomePage() {
     } catch (err) {
       console.error(err);
       setSearchedUser(null);
+      setPopupMessage("Could not search for that user.");
     } finally {
       setLoading(false);
     }
@@ -208,16 +210,16 @@ export default function HomePage() {
       const self = getLoggedInUsername();
 
       if (!self || !user?.username) {
-        alert("Missing username or target user");
+        setPopupMessage("Missing username or target user.");
         return;
       }
 
       if (self === user.username) {
-        alert("You cannot send a friend request to yourself");
+        setPopupMessage("You cannot send a friend request to yourself.");
         return;
       }
 
-      const url = `${API_BASE}/Friend/AcceptOrCreate/${self}/${user.username}`;
+      const url = `${API_BASE}Friend/AcceptOrCreate/${self}/${user.username}`;
 
       const res = await fetch(url, {
         method: "POST",
@@ -225,17 +227,16 @@ export default function HomePage() {
 
       if (!res.ok) {
         const text = await res.text();
-        console.log("Backend error:", text);
-        alert(`❌ FAILED: ${text}`);
+        setPopupMessage(`Failed: ${text}`);
         return;
       }
 
       await loadCurrentUserFriends();
 
-      alert(`✅ Friend request SENT to ${user.username}`);
+      setPopupMessage(`Friend request sent to ${user.username}.`);
     } catch (err) {
       console.error("Frontend error:", err);
-      alert("❌ Network/Fetch error");
+      setPopupMessage("Network error while sending friend request.");
     }
   };
 
@@ -244,85 +245,87 @@ export default function HomePage() {
       const self = getLoggedInUsername();
 
       if (!self) {
-        alert("Missing logged in username");
+        setPopupMessage("Missing logged in username.");
         return;
       }
 
-      const url = `${API_BASE}/Friend/AcceptOrCreate/${self}/${requestUser.username}`;
+      const url = `${API_BASE}Friend/AcceptOrCreate/${self}/${requestUser.username}`;
 
       const res = await fetch(url, {
         method: "POST",
       });
 
       if (!res.ok) {
-        alert(`❌ Accept failed: ${await res.text()}`);
+        setPopupMessage(`Accept failed: ${await res.text()}`);
         return;
       }
 
       await loadCurrentUserFriends();
 
-      alert(`✅ Friend request ACCEPTED from ${requestUser.username}`);
+      setPopupMessage(`Friend request accepted from ${requestUser.username}.`);
     } catch (err) {
       console.error(err);
-      alert("❌ Error accepting request");
+      setPopupMessage("Error accepting request.");
     }
   };
 
   const declineRequest = async (requestUser: UserMini) => {
-    
     try {
       const self = getLoggedInUsername();
 
       if (!self) {
-        alert("Missing logged in username");
+        setPopupMessage("Missing logged in username.");
         return;
       }
 
-      const url = `${API_BASE}/Friend/RejectOrDelete/${self}/${requestUser.username}`;
+      const url = `${API_BASE}Friend/RejectOrDelete/${self}/${requestUser.username}`;
 
       const res = await fetch(url, {
         method: "POST",
       });
 
       if (!res.ok) {
-        alert(`❌ Reject failed: ${await res.text()}`);
+        setPopupMessage(`Reject failed: ${await res.text()}`);
         return;
       }
 
       await loadCurrentUserFriends();
 
-      alert(`❌ Friend request REJECTED from ${requestUser.username}`);
+      setPopupMessage(`Friend request rejected from ${requestUser.username}.`);
     } catch (err) {
       console.error(err);
-      alert("❌ Error rejecting request");
+      setPopupMessage("Error rejecting request.");
     }
   };
+
   const removeFriend = async (friendUser: UserMini) => {
-  try {
-    const self = getLoggedInUsername();
+    try {
+      const self = getLoggedInUsername();
 
-    if (!self) {
-      alert("Missing logged in username");
-      return;
+      if (!self) {
+        setPopupMessage("Missing logged in username.");
+        return;
+      }
+
+      const url = `${API_BASE}Friend/RejectOrDelete/${self}/${friendUser.username}`;
+
+      const res = await fetch(url, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        setPopupMessage(`Remove failed: ${await res.text()}`);
+        return;
+      }
+
+      await loadCurrentUserFriends();
+
+      setPopupMessage(`${friendUser.username} was removed.`);
+    } catch (err) {
+      console.error(err);
+      setPopupMessage("Error removing friend.");
     }
-
-    const url = `${API_BASE}/Friend/RejectOrDelete/${self}/${friendUser.username}`;
-
-    const res = await fetch(url, {
-      method: "POST",
-    });
-
-    if (!res.ok) {
-      alert(`❌ Remove failed: ${await res.text()}`);
-      return;
-    }
-
-    await loadCurrentUserFriends();
-  } catch (err) {
-    console.error(err);
-  }
-};
-
+  };
 
   return (
     <main className="min-h-screen w-full bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Background.png)] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
@@ -353,9 +356,9 @@ export default function HomePage() {
             data={
               online
                 ? [...globalLeaders, myScore]
-                  .sort((a, b) => Number(b.points) - Number(a.points))
-                  .slice(0, 10)
-                  .map((p, i) => ({ ...p, rank: i + 1 }))
+                    .sort((a, b) => Number(b.points) - Number(a.points))
+                    .slice(0, 10)
+                    .map((p, i) => ({ ...p, rank: i + 1 }))
                 : globalLeaders
             }
           />
@@ -479,6 +482,11 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      <MessagePopup
+        message={popupMessage}
+        onClose={() => setPopupMessage("")}
+      />
     </main>
   );
 }

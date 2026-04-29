@@ -45,9 +45,11 @@ export interface DailyScheduleItem {
 }
 
 export interface ScheduleEvent {
-  id: string;
+  id: number;
+  userId: number;
   title: string;
-  date: string;
-  time: string;
-  location?: string;
+  location: string;
+  note: string;
+  when: string;
+  isDeleted: boolean;
 }

@@ -1,24 +1,42 @@
 "use client";
 
 import NavBarComponent from "@/components/nav";
+import AddDailyPopup from "@/components/AddDailyPopup";
 import Link from "next/link";
+import MessagePopup from "@/components/MessagePopUp";
 import { useEffect, useMemo, useState } from "react";
-import { DailyScheduleItem, ScheduleEvent, UserData } from "@/interfaces/interface";
+import {
+  DailyScheduleItem,
+  ScheduleEvent,
+  UserData,
+} from "@/interfaces/interface";
 import { loggedInData } from "@/lib/userservice";
+import AddEventPopup from "@/components/AddEventPopup";
+import {
+  createCalendarEvent,
+  getCalendarByUserId,
+  deleteCalendarEvent,
+} from "@/lib/calanderservice";
 import {
   saveDailyScheduleItem,
-  addEvent,
   formatMinutes,
   getDailySchedule,
-  getEvents,
-  getNextEvent,
-  getTodayEvent,
   removeDailyScheduleItem,
 } from "@/lib/scheduleService";
 
+function formatEventTime(event: ScheduleEvent) {
+  const date = new Date(event.when);
+
+  return date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function formatEventLine(event: ScheduleEvent | null) {
   if (!event) return "Nothing Planned";
-  const date = new Date(`${event.date}T${event.time}`);
+
+  const date = new Date(event.when);
 
   return `${date.toLocaleDateString([], {
     month: "short",
@@ -33,6 +51,10 @@ export default function SchedulePage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [dailySchedule, setDailySchedule] = useState<DailyScheduleItem[]>([]);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [showAddDailyPopup, setShowAddDailyPopup] = useState(false);
+  const [showAddEventPopup, setShowAddEventPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  
 
   useEffect(() => {
     const currentUser = loggedInData();
@@ -42,43 +64,51 @@ export default function SchedulePage() {
 
     const loadData = async () => {
       const schedule = await getDailySchedule(currentUser.id);
+      const calendarEvents = await getCalendarByUserId(currentUser.id);
+
       setDailySchedule(schedule);
-      setEvents(getEvents(currentUser.id));
+      setEvents(calendarEvents);
     };
 
     loadData();
   }, []);
 
-  const todayPlan = useMemo(() => {
-    if (!user?.id) return formatEventLine(null);
-    return formatEventLine(getTodayEvent(user.id));
-  }, [events, user]);
+  const todayEvents = useMemo(() => {
+    const now = new Date();
+
+    return events
+      .filter((event) => {
+        const eventDate = new Date(event.when);
+        return eventDate.toDateString() === now.toDateString();
+      })
+      .sort(
+        (a, b) => new Date(a.when).getTime() - new Date(b.when).getTime()
+      );
+  }, [events]);
 
   const nextWeekPlan = useMemo(() => {
-    if (!user?.id) return formatEventLine(null);
-    return formatEventLine(getNextEvent(user.id));
-  }, [events, user]);
+    if (!events.length) return formatEventLine(null);
 
-  const handleAddDaily = async () => {
+    const now = new Date();
+
+    const upcoming = events
+      .map((e) => ({ ...e, dateObj: new Date(e.when) }))
+      .filter((e) => e.dateObj > now)
+      .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+
+    return formatEventLine(upcoming[0] || null);
+  }, [events]);
+
+  const handleAddDaily = async (
+    name: string,
+    minutes: number,
+    isProductive: boolean
+  ) => {
     if (!user?.id) return;
 
-    const name = window.prompt("Category name?");
-    if (!name?.trim()) return;
-
-    const minutesRaw = window.prompt("How many minutes?", "60");
-    const minutes = Number(minutesRaw);
-
-    if (!minutes || minutes <= 0) {
-      alert("Please enter a valid minute amount.");
-      return;
-    }
-
-    try {
-      setDailySchedule(await saveDailyScheduleItem(user.id, name, minutes));
-    } catch (error) {
-      console.error(error);
-      alert("Could not create category.");
-    }
+    setDailySchedule(
+      await saveDailyScheduleItem(user.id, name, minutes, isProductive)
+    );
   };
 
   const handleRemoveDaily = async (item: DailyScheduleItem) => {
@@ -88,33 +118,42 @@ export default function SchedulePage() {
       setDailySchedule(await removeDailyScheduleItem(user.id, item));
     } catch (error) {
       console.error(error);
-      alert("Could not remove category.");
+      setPopupMessage("Could not remove category.");
     }
   };
 
-  const handleAddEvent = () => {
+  const handleAddEvent = async (
+    title: string,
+    date: string,
+    time: string,
+    location: string
+  ) => {
     if (!user?.id) return;
 
-    const title = window.prompt("Event title?");
-    if (!title?.trim()) return;
+    await createCalendarEvent({
+      userId: user.id,
+      title: title.trim(),
+      location: location.trim(),
+      note: "",
+      when: `${date}T${time}:00`,
+      isDeleted: false,
+    });
 
-    const date = window.prompt("Date? Use YYYY-MM-DD", new Date().toISOString().split("T")[0]);
-    if (!date?.trim()) return;
-
-    const time = window.prompt("Time? Use HH:mm", "18:00");
-    if (!time?.trim()) return;
-
-    const location = window.prompt("Location?", "") ?? "";
-
-    setEvents(
-      addEvent(user.id, {
-        title: title.trim(),
-        date: date.trim(),
-        time: time.trim(),
-        location: location.trim(),
-      })
-    );
+    setEvents(await getCalendarByUserId(user.id));
   };
+
+  const handleDeleteEvent = async (event: ScheduleEvent) => {
+  if (!user?.id) return;
+
+  try {
+    await deleteCalendarEvent(Number(event.id));
+
+    setEvents((prev) => prev.filter((e) => e.id !== event.id));
+  } catch (error) {
+    console.error(error);
+    setPopupMessage("Could not delete event.");
+  }
+};
 
   return (
     <main className="min-h-screen w-full bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Background.png)] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
@@ -128,7 +167,7 @@ export default function SchedulePage() {
         </div>
 
         <section className="grid w-full grid-cols-1 gap-4 xl:grid-cols-[0.9fr_1.35fr]">
-          <div className="h-140 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-6 shadow-md overflow-hidden">
+          <div className="h-140 overflow-hidden rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-6 shadow-md">
             <h2 className="font-small mb-8 text-center text-[2rem] text-black">
               Daily Schedule
             </h2>
@@ -168,7 +207,7 @@ export default function SchedulePage() {
 
                 <button
                   type="button"
-                  onClick={handleAddDaily}
+                  onClick={() => setShowAddDailyPopup(true)}
                   className="flex h-10 w-10 items-center justify-center bg-[#d9d9d9] text-[2rem] leading-none text-black shadow"
                 >
                   +
@@ -178,17 +217,45 @@ export default function SchedulePage() {
           </div>
 
           <div className="flex flex-col gap-4">
-            <div className="h-115 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-8 shadow-md overflow-hidden">
-              <div className="flex h-full flex-col items-center justify-center text-center">
-                <h2 className="font-small text-[3.2rem] text-black">
-                  Today
-                </h2>
+            <div className="h-115 overflow-hidden rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-8 shadow-md">
+              <div className="flex h-full flex-col text-center">
+                <h2 className="font-small text-[3.2rem] text-black">Today</h2>
 
-                <p className="font-small mt-2 text-[2.2rem] text-black">
-                  {todayPlan}
-                </p>
+                <div className="mt-4 flex-1 space-y-4 overflow-y-auto pr-2">
+                  {todayEvents.length === 0 ? (
+                    <p className="font-small text-[2.2rem] text-black">
+                      Nothing Planned
+                    </p>
+                  ) : (
+                    todayEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex items-center justify-between gap-4 rounded-xl bg-[#f4ead8]/80 px-4 py-3 shadow"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEvent(event)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-[1.4rem] leading-none text-white"
+                        >
+                          ×
+                        </button>
 
-                <h2 className="font-small mt-14 text-[3.2rem] text-black">
+                        <div className="flex-1 text-left">
+                          <p className="font-small text-[1.7rem] text-black">
+                            {event.title}
+                          </p>
+
+                          <p className="font-small text-[1.2rem] text-black">
+                            {formatEventTime(event)}
+                            {event.location ? ` • ${event.location}` : ""}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <h2 className="font-small mt-6 text-[3.2rem] text-black">
                   Up Next
                 </h2>
 
@@ -201,7 +268,7 @@ export default function SchedulePage() {
             <div className="flex justify-center">
               <button
                 type="button"
-                onClick={handleAddEvent}
+                onClick={() => setShowAddEventPopup(true)}
                 className="font-small min-w-65 rounded-lg bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat px-10 py-5 text-[2rem] text-black shadow-md"
               >
                 Add Event ?
@@ -219,6 +286,24 @@ export default function SchedulePage() {
           </Link>
         </div>
       </div>
+
+      {showAddDailyPopup && (
+        <AddDailyPopup
+          onClose={() => setShowAddDailyPopup(false)}
+          onSubmit={handleAddDaily}
+        />
+      )}
+
+      {showAddEventPopup && (
+        <AddEventPopup
+          onClose={() => setShowAddEventPopup(false)}
+          onSubmit={handleAddEvent}
+        />
+      )}
+      <MessagePopup
+  message={popupMessage}
+  onClose={() => setPopupMessage("")}
+/>
     </main>
   );
 }

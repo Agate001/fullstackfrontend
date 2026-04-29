@@ -62,3 +62,14 @@ export async function createTimeRecord(
 
   return await readJson<TimeRecord>(res);
 }
+export async function deleteTimeRecord(id: number): Promise<boolean> {
+  const res = await fetch(`${url}Delete/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+
+  return true;
+}

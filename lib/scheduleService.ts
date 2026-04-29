@@ -1,5 +1,9 @@
 import { DailyScheduleItem, ScheduleEvent, TimeRecord } from "@/interfaces/interface";
-import { createTimeRecord, getTimeRecordsByUserId } from "@/lib/timeRecordService";
+import {
+  createTimeRecord,
+  getTimeRecordsByUserId,
+  deleteTimeRecord,
+} from "@/lib/timeRecordService";
 
 const EVENT_KEY_PREFIX = "schedule_events";
 
@@ -44,9 +48,11 @@ function formatSeconds(totalSeconds: number): string {
   const hours = Math.floor(safe / 3600)
     .toString()
     .padStart(2, "0");
+
   const minutes = Math.floor((safe % 3600) / 60)
     .toString()
     .padStart(2, "0");
+
   const seconds = Math.floor(safe % 60)
     .toString()
     .padStart(2, "0");
@@ -75,12 +81,26 @@ type CategoryState = {
   isDeleted: boolean;
 };
 
-export async function getDailySchedule(userId: number): Promise<DailyScheduleItem[]> {
+export async function getDailySchedule(
+  userId: number
+): Promise<DailyScheduleItem[]> {
   const records = await getTimeRecordsByUserId(userId);
+
+  const deletedCategories = records
+    .filter((record) => record.isDeleted)
+    .map((record) => normalizeCategory(record.category));
+
+  const activeRecords = records.filter(
+    (record) =>
+      !record.isDeleted &&
+      !deletedCategories.some(
+        (category) => category === normalizeCategory(record.category)
+      )
+  );
 
   const grouped = new Map<string, CategoryState>();
 
-  const sorted = [...records].sort(
+  const sorted = [...activeRecords].sort(
     (a, b) => getRecordTimestamp(a) - getRecordTimestamp(b)
   );
 
@@ -105,18 +125,18 @@ export async function getDailySchedule(userId: number): Promise<DailyScheduleIte
 
     const existing = grouped.get(key)!;
 
-    if (goalSeconds > 0 || record.isDeleted) {
+    if (goalSeconds > 0) {
       existing.id = String(record.id ?? existing.id);
       existing.userId = record.userId;
       existing.name = category;
       existing.minutes = Math.max(1, Math.round(goalSeconds / 60));
       existing.lastUpdated = timestamp;
-      existing.isDeleted = record.isDeleted;
+      existing.isDeleted = false;
     }
   }
 
   return Array.from(grouped.values())
-    .filter((item) => !item.isDeleted && item.minutes > 0)
+    .filter((item) => item.minutes > 0)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(({ id, userId, name, minutes }) => ({
       id,
@@ -129,7 +149,8 @@ export async function getDailySchedule(userId: number): Promise<DailyScheduleIte
 export async function saveDailyScheduleItem(
   userId: number,
   name: string,
-  minutes: number
+  minutes: number,
+  isProductive: boolean
 ): Promise<DailyScheduleItem[]> {
   const trimmedName = name.trim();
 
@@ -151,7 +172,7 @@ export async function saveDailyScheduleItem(
     goal: formatMinutesAsGoal(minutes),
     category: trimmedName,
     tags: [trimmedName],
-    isProductive: trimmedName.toLowerCase() !== "free time",
+    isProductive,
     isDeleted: false,
   });
 
@@ -162,19 +183,7 @@ export async function removeDailyScheduleItem(
   userId: number,
   item: DailyScheduleItem
 ): Promise<DailyScheduleItem[]> {
-  const now = new Date().toISOString();
-
-  await createTimeRecord({
-    userId,
-    started: now,
-    stopped: now,
-    length: "00:00:00",
-    goal: formatMinutesAsGoal(item.minutes),
-    category: item.name,
-    tags: [item.name],
-    isProductive: item.name.toLowerCase() !== "free time",
-    isDeleted: true,
-  });
+  await deleteTimeRecord(Number(item.id));
 
   return await getDailySchedule(userId);
 }
@@ -184,8 +193,8 @@ export function getEvents(userId: number): ScheduleEvent[] {
   const data = safeRead<ScheduleEvent[]>(key, []);
 
   return data.sort((a, b) => {
-    const left = new Date(`${a.date}T${a.time}`).getTime();
-    const right = new Date(`${b.date}T${b.time}`).getTime();
+    const left = new Date(a.when).getTime();
+    const right = new Date(b.when).getTime();
     return left - right;
   });
 }
@@ -198,16 +207,22 @@ export function addEvent(userId: number, event: Omit<ScheduleEvent, "id">) {
 }
 
 export function getTodayEvent(userId: number) {
-  const today = new Date().toISOString().split("T")[0];
-  return getEvents(userId).find((event) => event.date === today) ?? null;
+  const today = new Date().toDateString();
+
+  return (
+    getEvents(userId).find((event) => {
+      const eventDate = new Date(event.when);
+      return eventDate.toDateString() === today;
+    }) ?? null
+  );
 }
 
 export function getNextEvent(userId: number) {
   const now = Date.now();
+
   return (
-    getEvents(userId).find(
-      (event) => new Date(`${event.date}T${event.time}`).getTime() >= now
-    ) ?? null
+    getEvents(userId).find((event) => new Date(event.when).getTime() >= now) ??
+    null
   );
 }
 
