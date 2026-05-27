@@ -1,0 +1,364 @@
+"use client";
+
+import MessagePopup from "@/components/MessagePopUp";
+import NavBarComponent from "@/components/nav";
+import type { RspUser } from "@/interfaces/interface";
+import {
+  acceptOrCreateFriend,
+  blockUser,
+  getAllUsers,
+  getUserByUsername,
+  rejectOrDeleteFriend,
+  unblockUser,
+} from "@/lib/userservice";
+import { Ban, Search, Trophy, UserMinus, UserPlus, Users } from "lucide-react";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+type UserMini = Pick<RspUser, "id" | "username" | "points" | "streak" | "isPointsPrivate" | "isStreakPrivate">;
+
+const getLoggedInUsername = () => {
+  const username = localStorage.getItem("username");
+  if (username) return username;
+
+  const user = localStorage.getItem("user");
+  if (!user) return null;
+
+  try {
+    return JSON.parse(user).username || null;
+  } catch {
+    return user;
+  }
+};
+
+function publicPoints(user: UserMini) {
+  return user.isPointsPrivate ? "Private" : `${user.points ?? 0} pts`;
+}
+
+export default function FriendsPage() {
+  const [search, setSearch] = useState("");
+  const [currentUser, setCurrentUser] = useState<RspUser | null>(null);
+  const [searchedUser, setSearchedUser] = useState<RspUser | null>(null);
+  const [allUsers, setAllUsers] = useState<RspUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+
+  const loadCurrentUserFriends = async () => {
+    try {
+      const self = getLoggedInUsername();
+      if (!self) return;
+
+      const [freshUser, users] = await Promise.all([
+        getUserByUsername(self),
+        getAllUsers(),
+      ]);
+
+      setCurrentUser(freshUser);
+      setAllUsers(users);
+      if (freshUser) localStorage.setItem("user", JSON.stringify(freshUser));
+    } catch (err) {
+      console.error(err);
+      setPopupMessage("Failed to load friends.");
+    }
+  };
+
+  useEffect(() => {
+    loadCurrentUserFriends();
+  }, []);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setSearchedUser(null);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setSearchedUser(await getUserByUsername(search.trim()));
+      } catch (err) {
+        console.error(err);
+        setSearchedUser(null);
+      } finally {
+        setLoading(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(timeout);
+  }, [search]);
+
+  const friendRequests = currentUser?.incomingRequests ?? [];
+  const outgoingRequests = currentUser?.outgoingRequests ?? [];
+  const friends = currentUser?.friends ?? [];
+  const blocked = currentUser?.blocked ?? [];
+
+  const topFriends = useMemo(() => {
+    const friendIds = new Set(friends.map((friend) => friend.id));
+    return allUsers
+      .filter((user) => friendIds.has(user.id) && !user.isPointsPrivate && !user.isDeleted)
+      .sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+      .slice(0, 5);
+  }, [allUsers, friends]);
+
+  const handleAddFriend = async (user: RspUser) => {
+    try {
+      const self = getLoggedInUsername();
+      if (!self || !user?.username) return;
+      if (self.toLowerCase() === user.username.toLowerCase()) {
+        setPopupMessage("You cannot send a friend request to yourself.");
+        return;
+      }
+
+      await acceptOrCreateFriend(self, user.username);
+      await loadCurrentUserFriends();
+      setPopupMessage(`Friend request sent to ${user.username}.`);
+    } catch (err) {
+      console.error(err);
+      setPopupMessage(err instanceof Error ? err.message : "Network error while sending friend request.");
+    }
+  };
+
+  const acceptRequest = async (requestUser: UserMini) => {
+    try {
+      const self = getLoggedInUsername();
+      if (!self) return;
+      await acceptOrCreateFriend(self, requestUser.username);
+      await loadCurrentUserFriends();
+      setPopupMessage(`Friend request accepted from ${requestUser.username}.`);
+    } catch (err) {
+      console.error(err);
+      setPopupMessage(err instanceof Error ? err.message : "Error accepting request.");
+    }
+  };
+
+  const declineOrRemove = async (user: UserMini, action: "declined" | "removed") => {
+    try {
+      const self = getLoggedInUsername();
+      if (!self) return;
+      await rejectOrDeleteFriend(self, user.username);
+      await loadCurrentUserFriends();
+      setPopupMessage(`${user.username} was ${action}.`);
+    } catch (err) {
+      console.error(err);
+      setPopupMessage(err instanceof Error ? err.message : `Error while ${action === "declined" ? "declining" : "removing"} user.`);
+    }
+  };
+
+  const handleBlock = async (user: UserMini | RspUser) => {
+    try {
+      const self = getLoggedInUsername();
+      if (!self) return;
+      if (self.toLowerCase() === user.username.toLowerCase()) {
+        setPopupMessage("You cannot block yourself.");
+        return;
+      }
+
+      await blockUser(self, user.username);
+      await loadCurrentUserFriends();
+      setPopupMessage(`${user.username} was blocked.`);
+    } catch (err) {
+      console.error(err);
+      setPopupMessage(err instanceof Error ? err.message : "Error while blocking user.");
+    }
+  };
+
+  const handleUnblock = async (user: UserMini) => {
+    try {
+      const self = getLoggedInUsername();
+      if (!self) return;
+      await unblockUser(self, user.username);
+      await loadCurrentUserFriends();
+      setPopupMessage(`${user.username} was unblocked.`);
+    } catch (err) {
+      console.error(err);
+      setPopupMessage(err instanceof Error ? err.message : "Error while unblocking user.");
+    }
+  };
+
+  return (
+    <main className="min-h-screen w-full px-6 py-4 text-[#111827]">
+      <NavBarComponent />
+
+      <header className="mb-6">
+        <h1 className="text-4xl font-extrabold tracking-tight">Friends</h1>
+        <p className="mt-3 text-lg text-slate-700">
+          Connect with friends, handle requests, block users, and compare points.
+        </p>
+      </header>
+
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.45fr_0.7fr_0.7fr]">
+        <div className="rounded-2xl border border-[#efcba5] bg-white/62 p-6 shadow-sm">
+          <div className="mb-6 flex gap-3">
+            <button className="flex items-center gap-2 rounded-lg border border-[#f2ddc2] bg-[#fffaf4] px-5 py-3 text-sm font-bold">
+              <Trophy size={16} /> Leaderboard
+            </button>
+            <button className="flex items-center gap-2 rounded-lg border border-[#efcba5] bg-[#fff0dd] px-5 py-3 text-sm font-bold text-[#b94a10]">
+              <Users size={16} /> Friends
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-[#f2ddc2] bg-[#fffaf4]/80 p-5">
+            <h2 className="font-extrabold">Add Friends</h2>
+            <p className="mt-2 text-sm text-slate-700">Find friends by username.</p>
+            <div className="mt-4 flex gap-3">
+              <div className="flex flex-1 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+                <Search size={17} className="text-slate-500" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Username"
+                  className="w-full bg-transparent text-sm outline-none"
+                />
+              </div>
+              <button
+                disabled={!searchedUser}
+                onClick={() => searchedUser && handleAddFriend(searchedUser)}
+                className="rounded-lg border border-[#ef8a55] px-5 py-3 text-sm font-bold text-[#ef3f05] disabled:opacity-50"
+              >
+                Add Friend
+              </button>
+            </div>
+            {loading && <p className="mt-3 text-sm text-slate-600">Searching...</p>}
+            {search.trim() && !loading && !searchedUser && (
+              <p className="mt-3 text-sm text-slate-600">No user found.</p>
+            )}
+            {searchedUser && (
+              <div className="mt-3 flex items-center justify-between rounded-lg bg-white/80 px-4 py-3">
+                <p className="text-sm font-semibold text-[#b94a10]">Found: {searchedUser.username}</p>
+                <button onClick={() => handleBlock(searchedUser)} className="flex items-center gap-2 text-sm font-bold text-red-600">
+                  <Ban size={15} /> Block
+                </button>
+              </div>
+            )}
+          </div>
+
+          <UserListCard title="Incoming Requests" count={friendRequests.length} empty="No incoming requests.">
+            {friendRequests.map((request) => (
+              <UserRow key={request.id} user={request}>
+                <button onClick={() => acceptRequest(request)} className="rounded-lg border border-[#ef8a55] px-4 py-2 text-sm font-bold text-[#ef3f05]">
+                  Accept
+                </button>
+                <button onClick={() => declineOrRemove(request, "declined")} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold">
+                  Decline
+                </button>
+              </UserRow>
+            ))}
+          </UserListCard>
+
+          <UserListCard title="Outgoing Requests" count={outgoingRequests.length} empty="No outgoing requests.">
+            {outgoingRequests.map((request) => (
+              <UserRow key={request.id} user={request}>
+                <button onClick={() => declineOrRemove(request, "removed")} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold">
+                  Cancel
+                </button>
+              </UserRow>
+            ))}
+          </UserListCard>
+
+          <div className="mt-4 rounded-xl border border-[#f2ddc2] bg-[#fffaf4]/80 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-extrabold">Friends</h2>
+              <span className="text-sm text-slate-700">{friends.length} Friends</span>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {friends.length === 0 && <p className="text-sm text-slate-600">No friends yet.</p>}
+              {friends.map((friend) => (
+                <div key={friend.id} className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold shadow-sm">
+                  <button onClick={() => declineOrRemove(friend, "removed")} className="h-3 w-3 rounded-full bg-red-500 hover:bg-red-600" aria-label={`Remove ${friend.username}`} />
+                  <span>{friend.username}</span>
+                  <span className="text-xs text-slate-500">{publicPoints(friend)}</span>
+                  <button onClick={() => handleBlock(friend)} className="ml-1 text-red-600" aria-label={`Block ${friend.username}`}>
+                    <Ban size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <UserListCard title="Blocked Users" count={blocked.length} empty="No blocked users.">
+            {blocked.map((user) => (
+              <UserRow key={user.id} user={user}>
+                <button onClick={() => handleUnblock(user)} className="rounded-lg border border-[#ef8a55] px-4 py-2 text-sm font-bold text-[#ef3f05]">
+                  Unblock
+                </button>
+              </UserRow>
+            ))}
+          </UserListCard>
+        </div>
+
+        <div className="rounded-2xl border border-[#efcba5] bg-white/62 p-6 shadow-sm">
+          <p className="mb-6 text-sm font-bold text-[#b94a10]">Your Stats</p>
+          <div className="space-y-8">
+            <Stat icon={<Trophy size={24} />} label="Total points" value={`${currentUser?.points ?? 0} pts`} note={currentUser?.isPointsPrivate ? "Private" : "Public"} />
+            <Stat icon={<UserPlus size={24} />} label="Incoming Requests" value={`${friendRequests.length}`} note={`${outgoingRequests.length} outgoing`} />
+            <Stat icon={<Users size={24} />} label="Current Streak" value={currentUser?.isStreakPrivate ? "Private" : `${currentUser?.streak ?? 0} days`} note="Keep it up!" />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[#efcba5] bg-white/62 p-6 shadow-sm">
+          <p className="mb-6 text-sm font-bold text-[#ef3f05]">Top Friends</p>
+          <div className="space-y-6">
+            {topFriends.length === 0 && <p className="text-sm text-slate-600">Add friends to build your leaderboard.</p>}
+            {topFriends.map((friend, index) => (
+              <div key={friend.id} className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className={`grid h-9 w-9 place-items-center rounded-full font-bold ${index === 0 ? "bg-[#f2b23a]" : index === 1 ? "bg-slate-300" : "bg-[#e4912f]"}`}>
+                    {index + 1}
+                  </span>
+                  <span className="font-semibold">{friend.username}</span>
+                </div>
+                <span className="font-semibold">{friend.points ?? 0} pts</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <MessagePopup message={popupMessage} onClose={() => setPopupMessage("")} />
+    </main>
+  );
+}
+
+function UserListCard({ title, count, empty, children }: { title: string; count: number; empty: string; children: ReactNode }) {
+  return (
+    <div className="mt-4 rounded-xl border border-[#f2ddc2] bg-[#fffaf4]/80 p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-extrabold">{title}</h2>
+        <span className="rounded-full bg-[#fff0dd] px-3 py-1 text-xs font-bold text-[#b94a10]">{count}</span>
+      </div>
+      <div className="space-y-3">{count === 0 ? <p className="text-sm text-slate-600">{empty}</p> : children}</div>
+    </div>
+  );
+}
+
+function UserRow({ user, children }: { user: UserMini; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg bg-white/80 p-3">
+      <div className="flex items-center gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-full bg-[#f0d7bd] font-bold">
+          {user.username[0]?.toUpperCase()}
+        </div>
+        <div>
+          <p className="font-semibold">{user.username}</p>
+          <p className="text-xs text-slate-500">{publicPoints(user)}</p>
+        </div>
+      </div>
+      <div className="flex gap-2">{children}</div>
+    </div>
+  );
+}
+
+function Stat({ icon, label, value, note }: { icon: ReactNode; label: string; value: string; note: string }) {
+  return (
+    <div className="flex items-center gap-5">
+      <div className="grid h-14 w-14 place-items-center rounded-full bg-[#fff0dd] text-[#d86b1f]">{icon}</div>
+      <div className="flex-1">
+        <p className="text-sm font-semibold">{label}</p>
+        <div className="mt-1 flex items-end justify-between gap-3">
+          <p className="text-2xl font-extrabold">{value}</p>
+          <span className="text-xs font-bold text-slate-700">{note}</span>
+        </div>
+      </div>
+    </div>
+  );
+}

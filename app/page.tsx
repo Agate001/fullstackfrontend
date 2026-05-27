@@ -1,16 +1,14 @@
 "use client";
 
-import NavBarComponent from "@/components/nav";
+import { BookOpenCheck, LockKeyhole, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createAccount, getUserByUsername, login } from "@/lib/userservice";
 
 export default function LoginPage() {
   const { push } = useRouter();
-
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [username, setUsername] = useState("");
-  // const [email, setEmail] = useState(""); later feature
   const [password, setPassword] = useState("");
   const [rePassword, setRePassword] = useState("");
 
@@ -26,136 +24,146 @@ export default function LoginPage() {
         return;
       }
 
-      const user = {
-        username,
-        password,
-      };
-
       try {
-        const result = await createAccount(user);
-
-        if (result) {
-          alert("Account created successfully");
-          setMode("login");
-          setPassword("");
-          setRePassword("");
-        } else {
+        const result = await createAccount({ username, password });
+        if (!result) {
           alert("Account already exists");
+          return;
         }
+
+        alert("Account created successfully");
+        setMode("login");
+        setPassword("");
+        setRePassword("");
       } catch (error) {
         console.error(error);
         alert("Signup failed");
       }
-    } else {
-      const user = {
-        username,
-        password,
-      };
 
-      try {
-        const token = await login(user);
+      return;
+    }
 
-        if (token) {
-          if (typeof window !== "undefined") {
-            // clear old stale data
-            localStorage.removeItem("user");
+    try {
+      const token = await login({ username, password });
 
-            // store token
-            localStorage.setItem("token", token);
-
-            const freshUser = await getUserByUsername(username);
-
-            if (!freshUser || !freshUser.id) {
-              alert("Failed to load user data");
-              return;
-            }
-
-            // save the correct user
-            localStorage.setItem("user", JSON.stringify(freshUser));
-
-            push("/home");
-          }
-        } else {
-          alert("Invalid username or password");
-        }
-      } catch (error) {
-        console.error(error);
-        alert("Login failed");
+      if (!token) {
+        alert("Invalid username or password");
+        return;
       }
+
+      localStorage.removeItem("user");
+      localStorage.setItem("token", token);
+      localStorage.setItem("username", username);
+
+      const freshUser = await getUserByUsername(username);
+      if (!freshUser?.id) {
+        alert("Failed to load user data");
+        return;
+      }
+
+      localStorage.setItem("user", JSON.stringify(freshUser));
+      push("/home");
+    } catch (error) {
+      console.error(error);
+      alert("Login failed");
     }
   };
 
   return (
-    <div className="dark:text-black">
-      <main className="min-h-screen w-full bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Background.png)] bg-cover bg-center flex items-center justify-center">
-        <div className="w-105 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center p-10 shadow-md">
-          <h1 className="font-large text-[2.6rem] text-center mb-8">
-            {mode === "login" ? "Login" : "Sign Up"}
-          </h1>
+    <main className="flex min-h-screen w-full items-center justify-center px-6 py-10 text-[#1e2429]">
+      <section className="w-full max-w-[660px] rounded-3xl border border-[#f0d7bd] bg-white/82 px-12 py-14 shadow-[0_24px_80px_rgba(120,70,20,0.16)] backdrop-blur">
+        <div className="mb-10 text-center">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl text-[#f05a1a]">
+            <BookOpenCheck size={52} strokeWidth={1.8} />
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight">StudySync</h1>
+          <h2 className="mt-8 text-4xl font-extrabold">
+            {mode === "login" ? "Welcome back!" : "Create account"}
+          </h2>
+          <p className="mt-3 text-lg text-slate-600">
+            {mode === "login"
+              ? "Log in to continue your journey and stay on track."
+              : "Start tracking progress and building better habits."}
+          </p>
+        </div>
 
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <label className="font-small text-[1.4rem]">User</label>
+        <div className="space-y-7">
+          <label className="block">
+            <span className="mb-3 block font-semibold">Email</span>
+            <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
+              <Mail size={22} className="text-slate-500" />
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="border border-black w-50 px-2 py-1 "
+                placeholder="Enter your email or username"
+                className="w-full bg-transparent text-base text-slate-800 placeholder:text-slate-500"
               />
             </div>
+          </label>
 
-            {/* {mode === "signup" && (
-              <div className="flex items-center justify-between">
-                <label className="font-small text-[1.4rem]">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="border border-black w-50 px-2 py-"
-                />
-              </div>
-            )}                                  LATER FEATURE*/}
-
-            <div className="flex items-center justify-between">
-              <label className="font-small text-[1.4rem]">Password</label>
+          <label className="block">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="font-semibold">Password</span>
+              {mode === "login" && (
+                <button className="text-sm font-semibold text-[#ef4b17]" type="button">
+                  Forgot password?
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
+              <LockKeyhole size={22} className="text-slate-500" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="border border-black w-50 px-2 py-1 "
+                placeholder="Enter your password"
+                className="w-full bg-transparent text-base text-slate-800 placeholder:text-slate-500"
               />
             </div>
+          </label>
 
-            {mode === "signup" && (
-              <div className="flex items-center justify-between">
-                <label className="font-small text-[1.4rem]">Re-Password</label>
+          {mode === "signup" && (
+            <label className="block">
+              <span className="mb-3 block font-semibold">Confirm password</span>
+              <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                <LockKeyhole size={22} className="text-slate-500" />
                 <input
                   type="password"
                   value={rePassword}
                   onChange={(e) => setRePassword(e.target.value)}
-                  className="border border-black w-50 px-2 py-1"
+                  placeholder="Re-enter your password"
+                  className="w-full bg-transparent text-base text-slate-800 placeholder:text-slate-500"
                 />
               </div>
-            )}
-          </div>
-
-          <div className="flex flex-col items-center mt-8 gap-3">
-            <button
-              onClick={handleSubmit}
-              className="font-large bg-yellow-200 px-6 py-1 text-[2rem] shadow hover:scale-105 active:scale-95 transition"
-            >
-              Enter
-            </button>
-
-            <button
-              onClick={() => setMode(mode === "login" ? "signup" : "login")}
-              className="font-small text-[1.1rem]"
-            >
-              {mode === "login" ? "Sign Up" : "Login"}
-            </button>
-          </div>
+            </label>
+          )}
         </div>
-      </main>
-    </div>
+
+        {mode === "login" && (
+          <label className="mt-7 flex items-center gap-3 text-base">
+            <input type="checkbox" className="h-4 w-4 accent-[#f05a1a]" />
+            Remember me
+          </label>
+        )}
+
+        <button
+          onClick={handleSubmit}
+          className="mt-8 w-full rounded-lg bg-[#ef3f05] py-4 text-lg font-bold text-white shadow-sm transition hover:bg-[#d93800] active:scale-[0.99]"
+        >
+          {mode === "login" ? "Log In" : "Sign Up"}
+        </button>
+
+        <p className="mt-10 text-center text-base text-slate-600">
+          {mode === "login" ? "Don’t have an account?" : "Already have an account?"}{" "}
+          <button
+            onClick={() => setMode(mode === "login" ? "signup" : "login")}
+            className="font-semibold text-[#ef4b17]"
+          >
+            {mode === "login" ? "Sign up" : "Log in"}
+          </button>
+        </p>
+      </section>
+    </main>
   );
 }

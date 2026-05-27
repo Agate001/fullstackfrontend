@@ -1,25 +1,12 @@
 "use client";
 
 import NavBarComponent from "@/components/nav";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import {
-  DailyScheduleItem,
-  TimeRecord,
-  UserData,
-} from "@/interfaces/interface";
-import {
-  createTimeRecord,
-  getTimeRecordsByUserId,
-} from "@/lib/timeRecordService";
+import { DailyScheduleItem, TimeRecord, UserData } from "@/interfaces/interface";
 import { getDailySchedule } from "@/lib/scheduleService";
+import { createTimeRecord, getTimeRecordsByUserId } from "@/lib/timeRecordService";
 import { loggedInData } from "@/lib/userservice";
-
-type TaskItem = {
-  name: string;
-  percent: number;
-  color?: string;
-};
+import { CalendarDays, CheckSquare, Grid2X2, Play, Trophy } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 type ActiveTimer = {
   category: string;
@@ -34,7 +21,7 @@ function getActiveTimerKey(userId: number) {
   return `${ACTIVE_TIMER_KEY_PREFIX}_${userId}`;
 }
 
-function safeReadActiveTimer(userId: number): ActiveTimer | null {
+function readActiveTimer(userId: number): ActiveTimer | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(getActiveTimerKey(userId));
   if (!raw) return null;
@@ -47,27 +34,17 @@ function safeReadActiveTimer(userId: number): ActiveTimer | null {
 }
 
 function formatSeconds(totalSeconds: number) {
-  const hours = Math.floor(totalSeconds / 3600)
-    .toString()
-    .padStart(2, "0");
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-    .toString()
-    .padStart(2, "0");
-  const seconds = Math.floor(totalSeconds % 60)
-    .toString()
-    .padStart(2, "0");
-
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safe / 3600).toString().padStart(2, "0");
+  const minutes = Math.floor((safe % 3600) / 60).toString().padStart(2, "0");
+  const seconds = Math.floor(safe % 60).toString().padStart(2, "0");
   return `${hours}:${minutes}:${seconds}`;
 }
 
 function getRecordDurationSeconds(record: TimeRecord) {
   if (!record.length || record.isDeleted) return 0;
-
   const [hours = "0", minutes = "0", seconds = "0"] = record.length.split(":");
-
-  const total =
-    Number(hours) * 3600 + Number(minutes) * 60 + Number(parseFloat(seconds));
-
+  const total = Number(hours) * 3600 + Number(minutes) * 60 + Number.parseFloat(seconds);
   return Number.isFinite(total) ? total : 0;
 }
 
@@ -80,10 +57,10 @@ export default function HomePage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [scheduleItems, setScheduleItems] = useState<DailyScheduleItem[]>([]);
   const [records, setRecords] = useState<TimeRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const currentUser = loggedInData();
@@ -93,8 +70,7 @@ export default function HomePage() {
     }
 
     setUser(currentUser);
-
-    const storedTimer = safeReadActiveTimer(currentUser.id);
+    const storedTimer = readActiveTimer(currentUser.id);
     setActiveTimer(storedTimer);
 
     const loadData = async () => {
@@ -106,12 +82,7 @@ export default function HomePage() {
 
         setScheduleItems(dailySchedule);
         setRecords(timeData.filter(isToday));
-
-        if (storedTimer?.category) {
-          setSelectedCategory(storedTimer.category);
-        } else if (dailySchedule.length > 0) {
-          setSelectedCategory(dailySchedule[0].name);
-        }
+        setSelectedCategory(storedTimer?.category || dailySchedule[0]?.name || "");
       } catch (error) {
         console.error(error);
       } finally {
@@ -129,18 +100,13 @@ export default function HomePage() {
     }
 
     const tick = () => {
-      const diff = Math.max(
-        0,
-        Math.floor(
-          (Date.now() - new Date(activeTimer.startedAt).getTime()) / 1000,
-        ),
-      );
-      setElapsedSeconds(diff);
+      const startedMs = Date.parse(activeTimer.startedAt);
+      const diff = Number.isFinite(startedMs) ? Math.floor((Date.now() - startedMs) / 1000) : 0;
+      setElapsedSeconds(Math.max(0, diff));
     };
 
     tick();
     const interval = window.setInterval(tick, 1000);
-
     return () => window.clearInterval(interval);
   }, [activeTimer]);
 
@@ -152,71 +118,31 @@ export default function HomePage() {
     }, {});
   }, [records]);
 
-  const workingOn: TaskItem[] = useMemo(() => {
+  const taskProgress = useMemo(() => {
     return scheduleItems.map((item) => {
-      const actualSeconds = totalsByCategory[item.name] ?? 0;
-      const targetSeconds = item.minutes * 60;
-      const percent =
-        targetSeconds > 0
-          ? Math.round((actualSeconds / targetSeconds) * 100)
-          : 0;
-
-      return {
-        name: item.name,
-        percent,
-        color: percent >= 100 ? "text-lime-600" : "text-red-500",
-      };
+      const actual = totalsByCategory[item.name] ?? 0;
+      const target = item.minutes * 60;
+      const percent = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+      return { ...item, actual, target, percent };
     });
   }, [scheduleItems, totalsByCategory]);
 
-  const completed: TaskItem[] = workingOn.filter((item) => item.percent >= 100);
-
-  const totalSecondsToday = records.reduce(
-    (sum, record) => sum + getRecordDurationSeconds(record),
-    0,
-  );
-
-  const targetSecondsToday = scheduleItems.reduce(
-    (sum, item) => sum + item.minutes * 60,
-    0,
-  );
-
-  const progress = targetSecondsToday
-    ? Math.min(100, Math.round((totalSecondsToday / targetSecondsToday) * 100))
-    : 0;
-
-  const score = Math.floor(totalSecondsToday / 60);
-  const bonus = completed.length * 25;
-
-  const selectedScheduleItem = scheduleItems.find(
-    (item) => item.name === selectedCategory,
-  );
-
-  const backendSecondsForSelectedCategory =
-    totalsByCategory[selectedCategory] ?? 0;
-
-  const liveSecondsForSelectedCategory =
-    activeTimer?.category === selectedCategory ? elapsedSeconds : 0;
-
-  const displayCurrentTime = formatSeconds(
-    backendSecondsForSelectedCategory + liveSecondsForSelectedCategory,
-  );
-
-  const displayTargetTime = formatSeconds(
-    (selectedScheduleItem?.minutes ?? 0) * 60,
-  );
+  const completed = taskProgress.filter((item) => item.percent >= 100);
+  const totalSecondsToday = records.reduce((sum, record) => sum + getRecordDurationSeconds(record), 0);
+  const targetSecondsToday = scheduleItems.reduce((sum, item) => sum + item.minutes * 60, 0);
+  const progress = targetSecondsToday ? Math.min(100, Math.round((totalSecondsToday / targetSecondsToday) * 100)) : 0;
+  const score = Math.floor(totalSecondsToday / 60) + completed.length * 25;
+  const selectedScheduleItem = scheduleItems.find((item) => item.name === selectedCategory);
+  const savedSeconds = totalsByCategory[selectedCategory] ?? 0;
+  const liveSeconds = activeTimer?.category === selectedCategory ? elapsedSeconds : 0;
 
   const handleStart = () => {
     if (!user?.id || !selectedCategory || activeTimer) return;
 
-    const selectedScheduleItem = scheduleItems.find(
-      (item) => item.name === selectedCategory,
-    );
-
     const timer: ActiveTimer = {
       category: selectedCategory,
       startedAt: new Date().toISOString(),
-      isProductive: selectedCategory !== "Free Time",
+      isProductive: selectedCategory.toLowerCase() !== "free time",
       goal: formatSeconds((selectedScheduleItem?.minutes ?? 0) * 60),
     };
 
@@ -228,18 +154,16 @@ export default function HomePage() {
     if (!activeTimer || !user?.id) return;
 
     try {
-      const end = new Date();
-      const start = new Date(activeTimer.startedAt);
-      const durationSeconds = Math.max(
-        0,
-        Math.floor((end.getTime() - start.getTime()) / 1000),
-      );
+      const stoppedAt = new Date();
+      const startedMs = Date.parse(activeTimer.startedAt);
+      const startedAt = Number.isFinite(startedMs) ? new Date(startedMs) : stoppedAt;
+      const durationSeconds = Math.max(0, Math.floor((stoppedAt.getTime() - startedAt.getTime()) / 1000));
 
       await createTimeRecord({
         userId: user.id,
         category: activeTimer.category,
-        started: start.toISOString(),
-        stopped: end.toISOString(),
+        started: startedAt.toISOString(),
+        stopped: stoppedAt.toISOString(),
         length: formatSeconds(durationSeconds),
         goal: activeTimer.goal || "00:00:00",
         tags: [activeTimer.category],
@@ -247,12 +171,13 @@ export default function HomePage() {
         isDeleted: false,
       });
 
-      const refreshed = await getTimeRecordsByUserId(user.id);
-      setRecords(refreshed.filter(isToday));
+      const [dailySchedule, refreshedRecords] = await Promise.all([
+        getDailySchedule(user.id),
+        getTimeRecordsByUserId(user.id),
+      ]);
 
-      const dailySchedule = await getDailySchedule(user.id);
       setScheduleItems(dailySchedule);
-
+      setRecords(refreshedRecords.filter(isToday));
       localStorage.removeItem(getActiveTimerKey(user.id));
       setActiveTimer(null);
       setElapsedSeconds(0);
@@ -263,162 +188,105 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Background.png)] bg-cover bg-center bg-no-repeat px-4 py-4 lg:px-6">
-      <div className="w-full">
-        <NavBarComponent />
+    <main className="min-h-screen w-full px-6 py-4 text-[#111827]">
+      <NavBarComponent />
 
-        <div className="mb-3 flex h-17.5 w-full items-center justify-center bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Title.png)] bg-cover bg-center bg-no-repeat">
-          <h1 className="font-large text-center text-[2.4rem] text-black">
-            Make Today Your Tomorrow
-          </h1>
+      <header className="mb-6">
+        <h1 className="text-4xl font-extrabold tracking-tight">Make Today Your Tomorrow</h1>
+        <p className="mt-3 text-lg text-slate-700">Stay focused, track your progress, and build better habits every day.</p>
+      </header>
+
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.55fr_0.85fr]">
+        <div className="rounded-2xl border border-[#efcba5] bg-white/62 p-7 shadow-sm">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <p className="mb-2 text-sm font-bold text-[#b94a10]">Current Session</p>
+              <div className="h-1 w-5 rounded-full bg-[#f05a1a]" />
+            </div>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              disabled={!!activeTimer}
+              className="rounded-lg border border-[#efcba5] bg-[#fff7ed] px-4 py-3 text-sm font-medium text-slate-700"
+            >
+              <option value="">All Categories</option>
+              {scheduleItems.map((item) => (
+                <option key={item.id} value={item.name}>{item.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-6 flex items-center gap-4">
+            <div>
+              <h2 className="text-3xl font-extrabold">What Are We Working On?</h2>
+              <p className="mt-2 text-slate-700">Pick a category and start your timer.</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#efcba5] bg-[#fffaf4]/70 p-8 text-center">
+            <p className="text-lg font-bold text-[#b94a10]">Current Task</p>
+            <div className="mx-auto mt-2 h-1 w-8 rounded-full bg-[#f3c58e]" />
+            <p className="mt-6 text-2xl">{selectedCategory || "Choose a task"}</p>
+            <p className="mt-5 text-lg text-slate-700">Saved Time / Goal</p>
+            <p className="mt-3 text-5xl font-extrabold tracking-tight">
+              {formatSeconds(savedSeconds + liveSeconds)} / {formatSeconds((selectedScheduleItem?.minutes ?? 0) * 60)}
+            </p>
+
+            <button
+              onClick={activeTimer ? handleStop : handleStart}
+              disabled={!selectedCategory}
+              className={`mt-8 inline-flex items-center justify-center gap-3 rounded-lg px-10 py-4 font-bold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                activeTimer ? "bg-[#ef3f05] hover:bg-[#d93800]" : "bg-[#31a31b] hover:bg-[#278315]"
+              }`}
+            >
+              <Play size={20} fill="currentColor" />
+              {activeTimer ? "Stop Focus Session" : "Start Focus Session"}
+            </button>
+          </div>
         </div>
 
-        <section className="grid w-full grid-cols-1 gap-3 xl:grid-cols-[1.35fr_1.1fr_0.8fr]">
-          <div className="h-140 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-6 shadow-md overflow-hidden">
-            <h2 className="font-small mb-6 text-center text-[2.1rem] text-black">
-              What Are We Working On
-            </h2>
+        <aside className="space-y-6 rounded-2xl border border-[#efcba5] bg-white/62 p-7 shadow-sm">
+          <p className="text-sm font-bold text-[#b94a10]">Daily Overview</p>
 
-            <div className="h-[calc(100%-4rem)] space-y-6 overflow-y-auto px-6 pr-3">
-              {workingOn.map((item) => (
-                <div
-                  key={item.name}
-                  className="font-small flex items-center justify-between text-[1.8rem]"
-                >
-                  <span className="text-black">{item.name}</span>
-                  <span className={item.color}>{item.percent}%</span>
-                </div>
-              ))}
-
-              {!workingOn.length && !loading && (
-                <p className="font-small text-center text-[1.6rem] text-black">
-                  Add a daily schedule item on the schedule page.
-                </p>
-              )}
+          <div className="flex items-center gap-5">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#fff0dd] text-[#d86b1f]">
+              <Trophy size={34} />
+            </div>
+            <div>
+              <p className="text-sm text-slate-700">Score</p>
+              <p className="text-4xl font-extrabold">+{score} <span className="text-base font-semibold">pts</span></p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-3">
-            <div className="min-h-45 rounded-[28px] bg-[url('https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png')] bg-cover bg-center bg-no-repeat p-5 shadow-md overflow-hidden">
-              <div className="grid h-full grid-cols-2 gap-6">
-                <div>
-                  <p className="font-small text-[1.9rem] text-black">Score</p>
-                  <p className="font-small mt-3 text-[2.4rem] text-black">
-                    +{score} Pts
-                  </p>
-                </div>
-
-                <div>
-                  <p className="font-small text-center text-[1.8rem] text-black">
-                    Today
-                  </p>
-
-                  <div className="font-small mt-2 flex justify-between text-[1.4rem] text-black">
-                    <span>{progress}%</span>
-                    <span>progress</span>
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-3">
-                    <div className="h-4 flex-1 overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className="h-full rounded-full bg-lime-500"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-
-                    <span className="font-small text-[1.7rem] text-black">
-                      +{bonus}
-                    </span>
-                  </div>
-                </div>
+          <div className="rounded-2xl border border-[#efcba5] bg-[#fffaf4]/70 p-6">
+            <p className="font-bold text-[#b94a10]">Percent Tracker</p>
+            <div className="mt-6 flex items-center gap-8">
+              <div className="grid h-20 w-20 place-items-center rounded-full border-[16px] border-[#f0d7bd] bg-white">
+                <span className="text-xs font-bold text-[#b94a10]">{progress}%</span>
               </div>
+              <p className="text-5xl font-extrabold">{progress}%</p>
             </div>
+          </div>
 
-            <div className="min-h-45 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-5 shadow-md overflow-hidden">
-              <div className="flex h-full flex-col items-center justify-center text-center">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="font-small mb-3 border border-black bg-white px-3 py-1 text-[1.3rem] text-black"
-                  disabled={!!activeTimer}
-                >
-                  {scheduleItems.map((item) => (
-                    <option key={item.id} value={item.name}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-
-                <p className="font-small mb-1 text-[1.2rem] text-black">
-                  Saved Time / Goal
-                </p>
-
-                <p className="font-small mb-4 text-[2.2rem] text-black">
-                  {displayCurrentTime} / {displayTargetTime}
-                </p>
-
-                {activeTimer ? (
-                  <button
-                    onClick={handleStop}
-                    className="font-small rounded-2xl bg-red-600 px-10 py-2 text-[2rem] text-black shadow"
-                  >
-                    Stop
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleStart}
-                    className="font-small rounded-2xl bg-lime-500 px-10 py-2 text-[2rem] text-black shadow"
-                    disabled={!scheduleItems.length || !selectedCategory}
-                  >
-                    Start
-                  </button>
-                )}
+          <div className="rounded-2xl border border-[#efcba5] bg-[#fffaf4]/70 p-6">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#fff0dd] text-[#d86b1f]">
+              <CheckSquare size={30} />
+            </div>
+            {completed.length ? (
+              <div className="space-y-3">
+                {completed.map((item) => (
+                  <p key={item.id} className="font-semibold">{item.name} completed</p>
+                ))}
               </div>
-            </div>
-
-            <div className="min-h-45 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat shadow-md overflow-hidden flex items-center justify-center px-6 text-center">
-              <span className="font-small text-[1.8rem] text-black">
-                {activeTimer
-                  ? `Tracking ${activeTimer.category}`
-                  : "Pick a category and start your timer."}
-              </span>
-            </div>
+            ) : (
+              <>
+                <h3 className="text-xl font-extrabold">No completed tasks yet.</h3>
+                <p className="mt-3 text-slate-700">Start a focus session to see your completed work here.</p>
+              </>
+            )}
           </div>
-
-          <div className="h-140 rounded-[28px] bg-[url(https://csablobcarlos.blob.core.windows.net/clmbloblect/Card.png)] bg-cover bg-center bg-no-repeat p-6 shadow-md overflow-hidden">
-            <h2 className="font-small mb-6 text-center text-[2.1rem] text-black">
-              Completed
-            </h2>
-
-            <div className="h-[calc(100%-4rem)] space-y-6 overflow-y-auto px-2 pr-3">
-              {completed.map((item) => (
-                <div
-                  key={item.name}
-                  className="font-small flex items-center justify-between text-[1.8rem] text-black"
-                >
-                  <span>{item.name}</span>
-                  <span className={item.color}>{item.percent}%</span>
-                </div>
-              ))}
-
-              {!completed.length && !loading && (
-                <p className="font-small text-center text-[1.6rem] text-black">
-                  No categories have reached their goal yet today.
-                </p>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <div className="mt-3">
-          <Link
-            className="font-small rounded-xl border border-[#9b7b56] bg-[#f4ead8] px-6 py-2 text-[1.4rem] text-black shadow"
-            href="/"
-          >
-            Logout
-          </Link>
-        </div>
-      </div>
+        </aside>
+      </section>
     </main>
   );
 }
