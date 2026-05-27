@@ -52,6 +52,7 @@ export interface DailyScheduleItem {
   userId: number;
   name: string;
   minutes: number;
+  isProductive: boolean;
 }
 
 export interface ScheduleEvent {

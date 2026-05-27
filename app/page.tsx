@@ -105,11 +105,6 @@ export default function LoginPage() {
           <label className="block">
             <div className="mb-3 flex items-center justify-between">
               <span className="font-semibold">Password</span>
-              {mode === "login" && (
-                <button className="text-sm font-semibold text-[#ef4b17]" type="button">
-                  Forgot password?
-                </button>
-              )}
             </div>
             <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
               <LockKeyhole size={22} className="text-slate-500" />
@@ -139,13 +134,6 @@ export default function LoginPage() {
             </label>
           )}
         </div>
-
-        {mode === "login" && (
-          <label className="mt-7 flex items-center gap-3 text-base">
-            <input type="checkbox" className="h-4 w-4 accent-[#f05a1a]" />
-            Remember me
-          </label>
-        )}
 
         <button
           onClick={handleSubmit}
