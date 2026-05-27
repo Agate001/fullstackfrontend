@@ -545,7 +545,7 @@ function Stat({
         <p className="text-sm font-semibold">{label}</p>
 
         <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
-          <p className="break-words text-2xl font-extrabold sm:text-3xl">
+          <p className="break-words text-2xl font-extrabold sm:text-2xl">
             {value}
           </p>
 
