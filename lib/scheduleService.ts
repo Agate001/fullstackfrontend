@@ -37,7 +37,7 @@ function parseDurationToSeconds(value: string): number {
   const total =
     Number(hours) * 3600 +
     Number(minutes) * 60 +
-    Number(parseFloat(seconds));
+    Number.parseFloat(seconds);
 
   return Number.isFinite(total) ? total : 0;
 }
@@ -79,6 +79,7 @@ type CategoryState = {
   minutes: number;
   lastUpdated: number;
   isDeleted: boolean;
+  isProductive: boolean;
 };
 
 export async function getDailySchedule(
@@ -119,6 +120,7 @@ export async function getDailySchedule(
         name: category,
         minutes: 0,
         lastUpdated: timestamp,
+        isProductive: record.isProductive ?? true,
         isDeleted: false,
       });
     }
@@ -131,6 +133,7 @@ export async function getDailySchedule(
       existing.name = category;
       existing.minutes = Math.max(1, Math.round(goalSeconds / 60));
       existing.lastUpdated = timestamp;
+      existing.isProductive = record.isProductive ?? true;
       existing.isDeleted = false;
     }
   }
@@ -138,11 +141,12 @@ export async function getDailySchedule(
   return Array.from(grouped.values())
     .filter((item) => item.minutes > 0)
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map(({ id, userId, name, minutes }) => ({
+    .map(({ id, userId, name, minutes, isProductive }) => ({
       id,
       userId,
       name,
       minutes,
+      isProductive,
     }));
 }
 
