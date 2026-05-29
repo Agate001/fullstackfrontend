@@ -4,7 +4,11 @@ import NavBarComponent from "@/components/nav";
 import { DailyScheduleItem, TimeRecord, UserData } from "@/interfaces/interface";
 import { getDailySchedule } from "@/lib/scheduleService";
 import { createTimeRecord, getTimeRecordsByUserId } from "@/lib/timeRecordService";
-import { loggedInData } from "@/lib/userservice";
+import {
+  loggedInData,
+  refreshLoggedInUser,
+  updateUserPointsAndStreak,
+} from "@/lib/userservice";
 import { CheckSquare, Play, Trophy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -61,6 +65,32 @@ function isToday(record: TimeRecord) {
   return record.started?.startsWith(today) ?? false;
 }
 
+function isSameLocalDay(left: Date, right: Date) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function calculateNewStreak(records: TimeRecord[], currentStreak: number) {
+  const today = new Date();
+
+  const hasProductiveRecordToday = records.some((record) => {
+    if (record.isDeleted || !record.isProductive || !record.started) {
+      return false;
+    }
+
+    return isSameLocalDay(new Date(record.started), today);
+  });
+
+  if (hasProductiveRecordToday) {
+    return Math.max(1, currentStreak);
+  }
+
+  return currentStreak + 1;
+}
+
 export default function HomePage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [scheduleItems, setScheduleItems] = useState<DailyScheduleItem[]>([]);
@@ -69,6 +99,7 @@ export default function HomePage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const currentUser = loggedInData();
@@ -85,14 +116,21 @@ export default function HomePage() {
 
     const loadData = async () => {
       try {
+        const freshUser = await refreshLoggedInUser();
+        const activeUser = freshUser ?? currentUser;
+
+        setUser(activeUser);
+
         const [dailySchedule, timeData] = await Promise.all([
-          getDailySchedule(currentUser.id),
-          getTimeRecordsByUserId(currentUser.id),
+          getDailySchedule(activeUser.id),
+          getTimeRecordsByUserId(activeUser.id),
         ]);
 
         setScheduleItems(dailySchedule);
         setRecords(timeData.filter(isToday));
-        setSelectedCategory(storedTimer?.category || dailySchedule[0]?.name || "");
+        setSelectedCategory(
+          storedTimer?.category || dailySchedule[0]?.name || "",
+        );
       } catch (error) {
         console.error(error);
       } finally {
@@ -154,25 +192,28 @@ export default function HomePage() {
 
   const totalSecondsToday = records.reduce(
     (sum, record) => sum + getRecordDurationSeconds(record),
-    0
+    0,
   );
 
   const targetSecondsToday = scheduleItems.reduce(
     (sum, item) => sum + item.minutes * 60,
-    0
+    0,
   );
 
   const liveTotalSecondsToday =
     totalSecondsToday + (activeTimer ? elapsedSeconds : 0);
 
   const progress = targetSecondsToday
-    ? Math.min(100, Math.round((liveTotalSecondsToday / targetSecondsToday) * 100))
+    ? Math.min(
+        100,
+        Math.round((liveTotalSecondsToday / targetSecondsToday) * 100),
+      )
     : 0;
 
-  const score = Math.floor(liveTotalSecondsToday / 60) + completed.length * 25;
+  const score = user?.points ?? 0;
 
   const selectedScheduleItem = scheduleItems.find(
-    (item) => item.name === selectedCategory
+    (item) => item.name === selectedCategory,
   );
 
   const savedSeconds = totalsByCategory[selectedCategory] ?? 0;
@@ -186,7 +227,7 @@ export default function HomePage() {
     const timer: ActiveTimer = {
       category: selectedCategory,
       startedAt: new Date().toISOString(),
-      isProductive: selectedCategory.toLowerCase() !== "free time",
+      isProductive: selectedScheduleItem?.isProductive ?? true,
       goal: formatSeconds((selectedScheduleItem?.minutes ?? 0) * 60),
     };
 
@@ -195,9 +236,11 @@ export default function HomePage() {
   };
 
   const handleStop = async () => {
-    if (!activeTimer || !user?.id) return;
+    if (!activeTimer || !user?.id || saving) return;
 
     try {
+      setSaving(true);
+
       const stoppedAt = new Date();
       const startedMs = Date.parse(activeTimer.startedAt);
 
@@ -207,10 +250,12 @@ export default function HomePage() {
 
       const durationSeconds = Math.max(
         0,
-        Math.floor((stoppedAt.getTime() - startedAt.getTime()) / 1000)
+        Math.floor((stoppedAt.getTime() - startedAt.getTime()) / 1000),
       );
 
-      await createTimeRecord({
+      const durationMinutes = Math.floor(durationSeconds / 60);
+
+      const createdRecord = await createTimeRecord({
         userId: user.id,
         category: activeTimer.category,
         started: startedAt.toISOString(),
@@ -222,6 +267,36 @@ export default function HomePage() {
         isDeleted: false,
       });
 
+      const pointChange = activeTimer.isProductive
+        ? durationMinutes
+        : -durationMinutes;
+
+      const nextPoints = Math.max(0, (user.points ?? 0) + pointChange);
+
+      const recordsForStreakCheck = createdRecord
+        ? [...records, createdRecord]
+        : records;
+
+      const nextStreak = activeTimer.isProductive
+        ? calculateNewStreak(records, user.streak ?? 0)
+        : user.streak ?? 0;
+
+      const updatedUser = await updateUserPointsAndStreak({
+        id: user.id,
+        points: nextPoints,
+        streak: nextStreak,
+      });
+
+      if (updatedUser) {
+        setUser(updatedUser);
+      } else {
+        setUser({
+          ...user,
+          points: nextPoints,
+          streak: nextStreak,
+        });
+      }
+
       const [dailySchedule, refreshedRecords] = await Promise.all([
         getDailySchedule(user.id),
         getTimeRecordsByUserId(user.id),
@@ -229,12 +304,15 @@ export default function HomePage() {
 
       setScheduleItems(dailySchedule);
       setRecords(refreshedRecords.filter(isToday));
+
       localStorage.removeItem(getActiveTimerKey(user.id));
       setActiveTimer(null);
       setElapsedSeconds(0);
     } catch (error) {
       console.error(error);
       alert("Could not save time record.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -327,8 +405,9 @@ export default function HomePage() {
             </div>
 
             <button
+              type="button"
               onClick={activeTimer ? handleStop : handleStart}
-              disabled={!selectedCategory}
+              disabled={!selectedCategory || saving}
               className={`mt-8 inline-flex w-full items-center justify-center gap-3 rounded-xl px-8 py-4 text-base font-bold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-64 ${
                 activeTimer
                   ? "bg-[#ef3f05] hover:bg-[#d93800]"
@@ -337,7 +416,11 @@ export default function HomePage() {
             >
               <Play size={20} fill="currentColor" />
 
-              {activeTimer ? "Stop Focus Session" : "Start Focus Session"}
+              {saving
+                ? "Saving..."
+                : activeTimer
+                  ? "Stop Focus Session"
+                  : "Start Focus Session"}
             </button>
           </div>
         </section>
@@ -351,11 +434,14 @@ export default function HomePage() {
             </div>
 
             <div>
-              <p className="text-sm text-slate-700">Score</p>
+              <p className="text-sm text-slate-700">Backend Points</p>
 
               <p className="text-4xl font-extrabold">
-                +{score}{" "}
-                <span className="text-base font-semibold">pts</span>
+                {score} <span className="text-base font-semibold">pts</span>
+              </p>
+
+              <p className="mt-1 text-sm text-slate-600">
+                Streak: {user?.streak ?? 0} days
               </p>
             </div>
           </div>

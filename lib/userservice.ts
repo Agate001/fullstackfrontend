@@ -68,17 +68,34 @@ export const normalizeUser = (user: any): RspUser | null => {
 
   const id = user.id ?? user.Id;
 
-  if (!id) return null;
+  if (id === undefined || id === null) return null;
+
+  const normalizeUserList = (users: any): RspUser[] => {
+    if (!Array.isArray(users)) return [];
+
+    return users
+      .map((item) => normalizeUser(item))
+      .filter((item): item is RspUser => item !== null);
+  };
 
   return {
     id,
     username: user.username ?? user.Username ?? "",
     points: user.points ?? user.Points ?? 0,
     streak: user.streak ?? user.Streak ?? 0,
-    outgoingRequests: user.outgoingRequests ?? user.OutgoingRequests ?? [],
-    incomingRequests: user.incomingRequests ?? user.IncomingRequests ?? [],
-    friends: user.friends ?? user.Friends ?? [],
-    blocked: user.blocked ?? user.Blocked ?? [],
+
+    outgoingRequests: normalizeUserList(
+      user.outgoingRequests ?? user.OutgoingRequests,
+    ),
+
+    incomingRequests: normalizeUserList(
+      user.incomingRequests ?? user.IncomingRequests,
+    ),
+
+    friends: normalizeUserList(user.friends ?? user.Friends),
+
+    blocked: normalizeUserList(user.blocked ?? user.Blocked),
+
     isPointsPrivate: user.isPointsPrivate ?? user.IsPointsPrivate ?? false,
     isStreakPrivate: user.isStreakPrivate ?? user.IsStreakPrivate ?? false,
     isDeleted: user.isDeleted ?? user.IsDeleted ?? false,
@@ -133,6 +150,7 @@ export const login = async (user: UserInfo) => {
 
     if (returnedUser) {
       localStorage.setItem("user", JSON.stringify(returnedUser));
+      localStorage.setItem("username", returnedUser.username);
       return token;
     }
   } catch {
@@ -143,6 +161,7 @@ export const login = async (user: UserInfo) => {
 
   if (signedInUser) {
     localStorage.setItem("user", JSON.stringify(signedInUser));
+    localStorage.setItem("username", signedInUser.username);
   }
 
   return token;
@@ -154,7 +173,10 @@ export const getAllUsers = async (): Promise<RspUser[]> => {
     headers: authHeaders(),
   });
 
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.log(await readError(res, "Failed to get users"));
+    return [];
+  }
 
   const users = (await readJson<any[]>(res)) ?? [];
 
@@ -169,7 +191,10 @@ export const getUserById = async (id: number): Promise<RspUser | null> => {
     headers: authHeaders(),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.log(await readError(res, "Failed to get user by id"));
+    return null;
+  }
 
   const user = await readJson<any>(res);
 
@@ -215,9 +240,62 @@ export const updateUser = async (
 
   if (normalized) {
     localStorage.setItem("user", JSON.stringify(normalized));
+    localStorage.setItem("username", normalized.username);
   }
 
   return normalized;
+};
+export const updateUserPointsAndStreak = async ({
+  id,
+  points,
+  streak,
+}: {
+  id: number;
+  points: number;
+  streak: number;
+}): Promise<RspUser | null> => {
+  return updateUser({
+    id,
+
+    bUsername: false,
+    vUsername: "",
+
+    bPassword: false,
+    vPasswordOld: "",
+    vPasswordNew: "",
+
+    bPoints: true,
+    vPoints: points,
+
+    bStreak: true,
+    vStreak: streak,
+
+    bIsPointsPrivate: false,
+    vIsPointsPrivate: false,
+
+    bIsStreakPrivate: false,
+    vIsStreakPrivate: false,
+
+    bIsDeleted: false,
+    vIsDeleted: false,
+  });
+};
+
+export const refreshLoggedInUser = async (): Promise<RspUser | null> => {
+  if (typeof window === "undefined") return null;
+
+  const username = localStorage.getItem("username");
+
+  if (!username) return null;
+
+  const user = await getUserByUsername(username);
+
+  if (user) {
+    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem("username", user.username);
+  }
+
+  return user;
 };
 
 export const deleteUser = async (id: number): Promise<boolean> => {

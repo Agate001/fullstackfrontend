@@ -11,24 +11,38 @@ import {
   rejectOrDeleteFriend,
   unblockUser,
 } from "@/lib/userservice";
-import { Ban, Search, Trophy, UserPlus, Users } from "lucide-react";
+import { Ban, Search, Trophy, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 type UserMini = Pick<
   RspUser,
-  "id" | "username" | "points" | "streak" | "isPointsPrivate" | "isStreakPrivate"
+  | "id"
+  | "username"
+  | "points"
+  | "streak"
+  | "isPointsPrivate"
+  | "isStreakPrivate"
 >;
 
 const getLoggedInUsername = () => {
+  if (typeof window === "undefined") return null;
+
   const username = localStorage.getItem("username");
-  if (username) return username;
+
+  if (username) {
+    return username;
+  }
 
   const user = localStorage.getItem("user");
-  if (!user) return null;
+
+  if (!user) {
+    return null;
+  }
 
   try {
-    return JSON.parse(user).username || null;
+    const parsed = JSON.parse(user);
+    return parsed.username || parsed.Username || null;
   } catch {
     return user;
   }
@@ -44,12 +58,19 @@ export default function FriendsPage() {
   const [searchedUser, setSearchedUser] = useState<RspUser | null>(null);
   const [allUsers, setAllUsers] = useState<RspUser[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [popupMessage, setPopupMessage] = useState("");
 
   const loadCurrentUserFriends = async () => {
     try {
+      setPageLoading(true);
+
       const self = getLoggedInUsername();
-      if (!self) return;
+
+      if (!self) {
+        setPopupMessage("Please sign in again.");
+        return;
+      }
 
       const [freshUser, users] = await Promise.all([
         getUserByUsername(self),
@@ -59,12 +80,15 @@ export default function FriendsPage() {
       setCurrentUser(freshUser);
       setAllUsers(users);
 
-      if (freshUser) {
-        localStorage.setItem("user", JSON.stringify(freshUser));
-      }
+      localStorage.setItem("user", JSON.stringify(freshUser));
+      localStorage.setItem("username", freshUser.username);
     } catch (err) {
       console.error(err);
-      setPopupMessage("Failed to load friends.");
+      setPopupMessage(
+        err instanceof Error ? err.message : "Failed to load friends."
+      );
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -104,9 +128,7 @@ export default function FriendsPage() {
     return allUsers
       .filter(
         (user) =>
-          friendIds.has(user.id) &&
-          !user.isPointsPrivate &&
-          !user.isDeleted
+          friendIds.has(user.id) && !user.isPointsPrivate && !user.isDeleted
       )
       .sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
       .slice(0, 5);
@@ -115,7 +137,11 @@ export default function FriendsPage() {
   const handleAddFriend = async (user: RspUser) => {
     try {
       const self = getLoggedInUsername();
-      if (!self || !user?.username) return;
+
+      if (!self || !user?.username) {
+        setPopupMessage("Please sign in again.");
+        return;
+      }
 
       if (self.toLowerCase() === user.username.toLowerCase()) {
         setPopupMessage("You cannot send a friend request to yourself.");
@@ -124,6 +150,9 @@ export default function FriendsPage() {
 
       await acceptOrCreateFriend(self, user.username);
       await loadCurrentUserFriends();
+
+      setSearch("");
+      setSearchedUser(null);
       setPopupMessage(`Friend request sent to ${user.username}.`);
     } catch (err) {
       console.error(err);
@@ -138,10 +167,15 @@ export default function FriendsPage() {
   const acceptRequest = async (requestUser: UserMini) => {
     try {
       const self = getLoggedInUsername();
-      if (!self) return;
+
+      if (!self) {
+        setPopupMessage("Please sign in again.");
+        return;
+      }
 
       await acceptOrCreateFriend(self, requestUser.username);
       await loadCurrentUserFriends();
+
       setPopupMessage(`Friend request accepted from ${requestUser.username}.`);
     } catch (err) {
       console.error(err);
@@ -157,10 +191,15 @@ export default function FriendsPage() {
   ) => {
     try {
       const self = getLoggedInUsername();
-      if (!self) return;
+
+      if (!self) {
+        setPopupMessage("Please sign in again.");
+        return;
+      }
 
       await rejectOrDeleteFriend(self, user.username);
       await loadCurrentUserFriends();
+
       setPopupMessage(`${user.username} was ${action}.`);
     } catch (err) {
       console.error(err);
@@ -177,7 +216,11 @@ export default function FriendsPage() {
   const handleBlock = async (user: UserMini | RspUser) => {
     try {
       const self = getLoggedInUsername();
-      if (!self) return;
+
+      if (!self) {
+        setPopupMessage("Please sign in again.");
+        return;
+      }
 
       if (self.toLowerCase() === user.username.toLowerCase()) {
         setPopupMessage("You cannot block yourself.");
@@ -186,6 +229,9 @@ export default function FriendsPage() {
 
       await blockUser(self, user.username);
       await loadCurrentUserFriends();
+
+      setSearch("");
+      setSearchedUser(null);
       setPopupMessage(`${user.username} was blocked.`);
     } catch (err) {
       console.error(err);
@@ -198,10 +244,15 @@ export default function FriendsPage() {
   const handleUnblock = async (user: UserMini) => {
     try {
       const self = getLoggedInUsername();
-      if (!self) return;
+
+      if (!self) {
+        setPopupMessage("Please sign in again.");
+        return;
+      }
 
       await unblockUser(self, user.username);
       await loadCurrentUserFriends();
+
       setPopupMessage(`${user.username} was unblocked.`);
     } catch (err) {
       console.error(err);
@@ -228,7 +279,10 @@ export default function FriendsPage() {
       <section className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.7fr)_minmax(280px,0.7fr)]">
         <div className="min-w-0 rounded-2xl border border-[#efcba5] bg-white/70 p-4 shadow-sm sm:p-6">
           <div className="mb-6 flex flex-wrap gap-3">
-            <button className="flex items-center gap-2 rounded-lg border border-[#efcba5] bg-[#fff0dd] px-5 py-3 text-sm font-bold text-[#b94a10]">
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-lg border border-[#efcba5] bg-[#fff0dd] px-5 py-3 text-sm font-bold text-[#b94a10]"
+            >
               <Users size={16} />
               Friends
             </button>
@@ -254,9 +308,10 @@ export default function FriendsPage() {
               </div>
 
               <button
+                type="button"
                 disabled={!searchedUser}
                 onClick={() => searchedUser && handleAddFriend(searchedUser)}
-                className="w-full rounded-lg border border-[#ef8a55] px-5 py-3 text-sm font-bold text-[#ef3f05] disabled:opacity-50 sm:w-auto"
+                className="w-full rounded-lg border border-[#ef8a55] px-5 py-3 text-sm font-bold text-[#ef3f05] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
               >
                 Add Friend
               </button>
@@ -272,11 +327,20 @@ export default function FriendsPage() {
 
             {searchedUser && (
               <div className="mt-3 flex flex-col gap-3 rounded-lg bg-white/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="min-w-0 break-words text-sm font-semibold text-[#b94a10]">
-                  Found: {searchedUser.username}
-                </p>
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-semibold text-[#b94a10]">
+                    Found: {searchedUser.username}
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    {searchedUser.isPointsPrivate
+                      ? "Points private"
+                      : `${searchedUser.points ?? 0} pts`}
+                  </p>
+                </div>
 
                 <button
+                  type="button"
                   onClick={() => handleBlock(searchedUser)}
                   className="flex items-center gap-2 text-sm font-bold text-red-600"
                 >
@@ -295,6 +359,7 @@ export default function FriendsPage() {
             {friendRequests.map((request) => (
               <UserRow key={request.id} user={request}>
                 <button
+                  type="button"
                   onClick={() => acceptRequest(request)}
                   className="rounded-lg border border-[#ef8a55] px-4 py-2 text-sm font-bold text-[#ef3f05]"
                 >
@@ -302,6 +367,7 @@ export default function FriendsPage() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => declineOrRemove(request, "declined")}
                   className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold"
                 >
@@ -319,6 +385,7 @@ export default function FriendsPage() {
             {outgoingRequests.map((request) => (
               <UserRow key={request.id} user={request}>
                 <button
+                  type="button"
                   onClick={() => declineOrRemove(request, "removed")}
                   className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold"
                 >
@@ -348,6 +415,7 @@ export default function FriendsPage() {
                   className="flex max-w-full items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold shadow-sm"
                 >
                   <button
+                    type="button"
                     onClick={() => declineOrRemove(friend, "removed")}
                     className="h-3 w-3 shrink-0 rounded-full bg-red-500 hover:bg-red-600"
                     aria-label={`Remove ${friend.username}`}
@@ -360,6 +428,7 @@ export default function FriendsPage() {
                   </span>
 
                   <button
+                    type="button"
                     onClick={() => handleBlock(friend)}
                     className="ml-1 shrink-0 text-red-600"
                     aria-label={`Block ${friend.username}`}
@@ -379,6 +448,7 @@ export default function FriendsPage() {
             {blocked.map((user) => (
               <UserRow key={user.id} user={user}>
                 <button
+                  type="button"
                   onClick={() => handleUnblock(user)}
                   className="rounded-lg border border-[#ef8a55] px-4 py-2 text-sm font-bold text-[#ef3f05]"
                 >
@@ -392,32 +462,29 @@ export default function FriendsPage() {
         <div className="min-w-0 rounded-2xl border border-[#efcba5] bg-white/70 p-4 shadow-sm sm:p-6">
           <p className="mb-6 text-sm font-bold text-[#b94a10]">Your Stats</p>
 
-          <div className="space-y-8">
-            <Stat
-              icon={<Trophy size={24} />}
-              label="Total points"
-              value={`${currentUser?.points ?? 0} pts`}
-              note={currentUser?.isPointsPrivate ? "Private" : "Public"}
-            />
+          {pageLoading ? (
+            <p className="text-sm text-slate-600">Loading your stats...</p>
+          ) : (
+            <div className="space-y-8">
+              <Stat
+                icon={<Trophy size={24} />}
+                label="Total points"
+                value={`${currentUser?.points ?? 0} pts`}
+                note={currentUser?.isPointsPrivate ? "Private" : "Public"}
+              />
 
-            <Stat
-              icon={<UserPlus size={24} />}
-              label="Incoming Requests"
-              value={`${friendRequests.length}`}
-              note={`${outgoingRequests.length} outgoing`}
-            />
-
-            <Stat
-              icon={<Users size={24} />}
-              label="Current Streak"
-              value={
-                currentUser?.isStreakPrivate
-                  ? "Private"
-                  : `${currentUser?.streak ?? 0} days`
-              }
-              note="Keep it up!"
-            />
-          </div>
+              <Stat
+                icon={<Users size={24} />}
+                label="Current Streak"
+                value={
+                  currentUser?.isStreakPrivate
+                    ? "Private"
+                    : `${currentUser?.streak ?? 0} days`
+                }
+                note=""
+              />
+            </div>
+          )}
         </div>
 
         <div className="min-w-0 rounded-2xl border border-[#efcba5] bg-white/70 p-4 shadow-sm sm:p-6 lg:col-span-2 xl:col-span-1">

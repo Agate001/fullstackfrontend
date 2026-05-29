@@ -98,3 +98,102 @@ export interface RspUser extends UserData {
   friends: RspUser[];
   blocked: RspUser[];
 }
+export interface MdlCalendarEvent {
+  Id: number;
+  UserId: number;
+  Title: string;
+  Location: string;
+  Note: string;
+  When: string;
+  IsDeleted: boolean;
+}
+
+export interface MdlTimeRecord {
+  Id: number;
+  UserId: number;
+  Started: string;
+  Stopped: string;
+  Length: string;
+  Goal: string;
+  Category: string;
+  Tags: string[];
+  IsProductive: boolean;
+  IsDeleted: boolean;
+}
+
+export interface MdlUser {
+  Id: number;
+  Username: string;
+  Points: number;
+  Streak: number;
+  OutgoingRequests: number[];
+  IncomingRequests: number[];
+  Friends: number[];
+  Blocked: number[];
+  IsPointsPrivate: boolean;
+  IsStreakPrivate: boolean;
+  IsDeleted: boolean;
+}
+
+export interface RqtAccount {
+  Username: string;
+  Password: string;
+}
+
+export interface RqtCalendarEvent {
+  UserId: number;
+  Title: string;
+  Location: string;
+  Note: string;
+  When: string;
+}
+
+export interface RqtTimeRecord {
+  UserId: number;
+  Started: string;
+  Stopped: string;
+  Goal: string;
+  Category: string;
+  Tags: string[];
+  IsProductive: boolean;
+}
+
+export interface RqtUserUpdate {
+  Id: number;
+
+  BUsername: boolean;
+  VUsername: string;
+
+  BPassword: boolean;
+  VPasswordOld: string;
+  VPasswordNew: string;
+
+  BPoints: boolean;
+  VPoints: number;
+
+  BStreak: boolean;
+  VStreak: number;
+
+  BIsPointsPrivate: boolean;
+  VIsPointsPrivate: boolean;
+
+  BIsStreakPrivate: boolean;
+  VIsStreakPrivate: boolean;
+
+  BIsDeleted: boolean;
+  VIsDeleted: boolean;
+}
+
+export interface RspUser {
+  id: number;
+  username: string;
+  points: number;
+  streak: number;
+  outgoingRequests: RspUser[];
+  incomingRequests: RspUser[];
+  friends: RspUser[];
+  blocked: RspUser[];
+  isPointsPrivate: boolean;
+  isStreakPrivate: boolean;
+  isDeleted: boolean;
+}
