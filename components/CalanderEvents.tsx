@@ -27,13 +27,23 @@ function toInputDate(date: Date) {
 }
 
 function formatEventTime(event: ScheduleEvent) {
-  const timeMs = Date.parse(event.when);
-  const date = Number.isFinite(timeMs) ? new Date(timeMs) : new Date();
+  const when = event.when;
 
-  return date.toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  if (!when) return "";
+
+  const timeMatch = when.match(/T(\d{2}):(\d{2})/);
+
+  if (timeMatch) {
+    const [, hourString, minute] = timeMatch;
+    const hour = Number(hourString);
+
+    const displayHour = hour % 12 || 12;
+    const period = hour >= 12 ? "PM" : "AM";
+
+    return `${displayHour}:${minute} ${period}`;
+  }
+
+  return when;
 }
 
 function formatSelectedDate(date: Date) {

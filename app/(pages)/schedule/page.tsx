@@ -28,11 +28,26 @@ function dateKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
-function getEventDateKey(event: ScheduleEvent) {
-  const timeMs = Date.parse(event.when);
-  const date = Number.isFinite(timeMs) ? new Date(timeMs) : new Date();
+function parseLocalEventDate(event: ScheduleEvent) {
+  const match = event.when?.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/,
+  );
 
-  return dateKey(date);
+  if (!match) return new Date();
+
+  const [, year, month, day, hour, minute] = match;
+
+  return new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+  );
+}
+
+function getEventDateKey(event: ScheduleEvent) {
+  return dateKey(parseLocalEventDate(event));
 }
 
 function getMonthDays(viewDate: Date, events: ScheduleEvent[]) {
@@ -120,13 +135,18 @@ export default function SchedulePage() {
     setUser(currentUser);
 
     const loadData = async () => {
-      const [schedule, calendarEvents] = await Promise.all([
-        getDailySchedule(currentUser.id),
-        getCalendarByUserId(currentUser.id),
-      ]);
+      try {
+        const [schedule, calendarEvents] = await Promise.all([
+          getDailySchedule(currentUser.id),
+          getCalendarByUserId(currentUser.id),
+        ]);
 
-      setDailySchedule(schedule);
-      setEvents(calendarEvents);
+        setDailySchedule(schedule);
+        setEvents(calendarEvents);
+      } catch (error) {
+        console.error(error);
+        setPopupMessage("Could not load schedule.");
+      }
     };
 
     loadData();
@@ -142,7 +162,11 @@ export default function SchedulePage() {
 
     return events
       .filter((event) => getEventDateKey(event) === selected)
-      .sort((a, b) => Date.parse(a.when) - Date.parse(b.when));
+      .sort(
+        (a, b) =>
+          parseLocalEventDate(a).getTime() -
+          parseLocalEventDate(b).getTime(),
+      );
   }, [events, selectedDate]);
 
   const selectedCount = dailySchedule.length;
@@ -177,9 +201,14 @@ export default function SchedulePage() {
   ) => {
     if (!user?.id) return;
 
-    setDailySchedule(
-      await saveDailyScheduleItem(user.id, name, minutes, isProductive),
-    );
+    try {
+      setDailySchedule(
+        await saveDailyScheduleItem(user.id, name, minutes, isProductive),
+      );
+    } catch (error) {
+      console.error(error);
+      setPopupMessage("Could not add task.");
+    }
   };
 
   const handleRemoveDaily = async (item: DailyScheduleItem) => {
@@ -201,24 +230,35 @@ export default function SchedulePage() {
   ) => {
     if (!user?.id) return;
 
-    const when = new Date(`${date}T${time}:00`).toISOString();
+    try {
+      const when = `${date}T${time}:00`;
 
-    await createCalendarEvent({
-      userId: user.id,
-      title: title.trim(),
-      location: location.trim(),
-      note: "",
-      when,
-    });
+      await createCalendarEvent({
+        userId: user.id,
+        title: title.trim(),
+        location: location.trim(),
+        note: "",
+        when,
+      });
 
-    const updatedEvents = await getCalendarByUserId(user.id);
-    setEvents(updatedEvents);
+      const updatedEvents = await getCalendarByUserId(user.id);
+      setEvents(updatedEvents);
 
-    const newSelectedDate = new Date(`${date}T00:00:00`);
-    setSelectedDate(newSelectedDate);
-    setViewDate(
-      new Date(newSelectedDate.getFullYear(), newSelectedDate.getMonth(), 1),
-    );
+      const [year, month, day] = date.split("-").map(Number);
+      const newSelectedDate = new Date(year, month - 1, day);
+
+      setSelectedDate(newSelectedDate);
+      setViewDate(
+        new Date(
+          newSelectedDate.getFullYear(),
+          newSelectedDate.getMonth(),
+          1,
+        ),
+      );
+    } catch (error) {
+      console.error(error);
+      setPopupMessage("Could not add event.");
+    }
   };
 
   const handleDeleteEvent = async (event: ScheduleEvent) => {
@@ -375,8 +415,6 @@ export default function SchedulePage() {
             ))}
 
             {days.map((day, index) => {
-              const isSelected = dateKey(day.date) === dateKey(selectedDate);
-
               return (
                 <button
                   key={`${day.label}-${index}`}
@@ -390,26 +428,26 @@ export default function SchedulePage() {
                   type="button"
                 >
                   <span
-  className={`relative grid h-8 w-8 place-items-center rounded-full text-xs font-semibold transition sm:h-10 sm:w-10 sm:text-sm ${
-    day.today
-      ? "bg-[#ef5b17] text-white shadow-sm"
-      : day.hasEvent
-        ? "bg-[#fff0dd] text-[#ef3f05] ring-2 ring-[#efcba5]"
-        : day.muted
-          ? "text-slate-400 hover:bg-[#fffaf4]"
-          : "text-slate-900 hover:bg-[#fffaf4]"
-  }`}
->
-  {day.label}
+                    className={`relative grid h-8 w-8 place-items-center rounded-full text-xs font-semibold transition sm:h-10 sm:w-10 sm:text-sm ${
+                      day.today
+                        ? "bg-[#ef5b17] text-white shadow-sm"
+                        : day.hasEvent
+                          ? "bg-[#fff0dd] text-[#ef3f05] ring-2 ring-[#efcba5]"
+                          : day.muted
+                            ? "text-slate-400 hover:bg-[#fffaf4]"
+                            : "text-slate-900 hover:bg-[#fffaf4]"
+                    }`}
+                  >
+                    {day.label}
 
-  {day.hasEvent && (
-    <span
-      className={`absolute bottom-1 h-1.5 w-1.5 rounded-full ${
-        day.today ? "bg-white" : "bg-[#ef3f05]"
-      }`}
-    />
-  )}
-</span>
+                    {day.hasEvent && (
+                      <span
+                        className={`absolute bottom-1 h-1.5 w-1.5 rounded-full ${
+                          day.today ? "bg-white" : "bg-[#ef3f05]"
+                        }`}
+                      />
+                    )}
+                  </span>
                 </button>
               );
             })}

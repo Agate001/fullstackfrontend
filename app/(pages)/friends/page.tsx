@@ -80,12 +80,14 @@ export default function FriendsPage() {
       setCurrentUser(freshUser);
       setAllUsers(users);
 
-      localStorage.setItem("user", JSON.stringify(freshUser));
-      localStorage.setItem("username", freshUser.username);
+      if (freshUser) {
+        localStorage.setItem("user", JSON.stringify(freshUser));
+        localStorage.setItem("username", freshUser.username);
+      }
     } catch (err) {
       console.error(err);
       setPopupMessage(
-        err instanceof Error ? err.message : "Failed to load friends."
+        err instanceof Error ? err.message : "Failed to load friends.",
       );
     } finally {
       setPageLoading(false);
@@ -128,7 +130,7 @@ export default function FriendsPage() {
     return allUsers
       .filter(
         (user) =>
-          friendIds.has(user.id) && !user.isPointsPrivate && !user.isDeleted
+          friendIds.has(user.id) && !user.isPointsPrivate && !user.isDeleted,
       )
       .sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
       .slice(0, 5);
@@ -159,7 +161,7 @@ export default function FriendsPage() {
       setPopupMessage(
         err instanceof Error
           ? err.message
-          : "Network error while sending friend request."
+          : "Network error while sending friend request.",
       );
     }
   };
@@ -180,14 +182,14 @@ export default function FriendsPage() {
     } catch (err) {
       console.error(err);
       setPopupMessage(
-        err instanceof Error ? err.message : "Error accepting request."
+        err instanceof Error ? err.message : "Error accepting request.",
       );
     }
   };
 
   const declineOrRemove = async (
     user: UserMini,
-    action: "declined" | "removed"
+    action: "declined" | "removed",
   ) => {
     try {
       const self = getLoggedInUsername();
@@ -208,7 +210,7 @@ export default function FriendsPage() {
           ? err.message
           : `Error while ${
               action === "declined" ? "declining" : "removing"
-            } user.`
+            } user.`,
       );
     }
   };
@@ -236,7 +238,7 @@ export default function FriendsPage() {
     } catch (err) {
       console.error(err);
       setPopupMessage(
-        err instanceof Error ? err.message : "Error while blocking user."
+        err instanceof Error ? err.message : "Error while blocking user.",
       );
     }
   };
@@ -257,7 +259,7 @@ export default function FriendsPage() {
     } catch (err) {
       console.error(err);
       setPopupMessage(
-        err instanceof Error ? err.message : "Error while unblocking user."
+        err instanceof Error ? err.message : "Error while unblocking user.",
       );
     }
   };
@@ -272,7 +274,8 @@ export default function FriendsPage() {
         </h1>
 
         <p className="mt-3 max-w-2xl text-base text-slate-700 sm:text-lg">
-          Connect with friends, handle requests, block users, and compare points.
+          Connect with friends, handle requests, block users, and compare
+          points.
         </p>
       </header>
 
@@ -529,7 +532,10 @@ export default function FriendsPage() {
         </div>
       </section>
 
-      <MessagePopup message={popupMessage} onClose={() => setPopupMessage("")} />
+      <MessagePopup
+        message={popupMessage}
+        onClose={() => setPopupMessage("")}
+      />
     </main>
   );
 }
@@ -566,13 +572,7 @@ function UserListCard({
   );
 }
 
-function UserRow({
-  user,
-  children,
-}: {
-  user: UserMini;
-  children: ReactNode;
-}) {
+function UserRow({ user, children }: { user: UserMini; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg bg-white/80 p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-3">
